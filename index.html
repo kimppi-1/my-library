@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 서재</title>
+<meta name="description" content="가지고 있는 책 PDF를 장별로 읽고, 형광펜·메모·질문과 문제로 익히는 개인 서재">
+<meta name="theme-color" content="#6d2333">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Nanum+Myeongjo:wght@400;700&family=Nanum+Gothic:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 조용한 개인 서재. 천으로 싼 양장본을 펴고 한 장씩 읽는 저녁.
+   IDEA: 양장본 한 권 — 천 표지 색 띠, 금색 리본 책갈피, 여백 넉넉한 본문 지면.
+   PICTURE: 서재에서는 책등이 꽂힌 책장, 책 안에서는 목차 자체, 장에서는 펼친 지면과 리본.
+   COLOUR and TYPE: 흰 종이 + 먹색, 표지 천은 짙은 자주(#6d2333), 리본은 금(#c9a227). 제목 Gowun Batang, 본문 Gowun Batang 18px, 도구는 Noto Sans KR.
+   LAYOUT: 좁은 본문 단(68자), 위에 얇은 머리띠, 아래 공부 칸. 좁은 화면은 한 줄. */
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#141213);--paper:light-dark(#ffffff,#1b1819);--ink:light-dark(#1d1a1b,#ece7e8);
+--muted:light-dark(#6a6466,#a39b9e);--line:light-dark(#e7e2e3,#2e292b);--cloth:light-dark(#6d2333,#c2647a);
+--cloth-bg:light-dark(#f6ecee,#2a1a1f);--ribbon:light-dark(#b8901a,#e2c15a);--ok:light-dark(#1f6b52,#6fcfa8);--bad:light-dark(#b3261e,#ff8a80)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 "Noto Sans KR",system-ui,sans-serif;overflow-x:clip}
+a{color:var(--cloth)}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px max(5vw,16px);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+.brand{font:700 19px "Gowun Batang",serif;text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;min-height:44px}
+.crumb{font-size:14px;color:var(--muted);text-align:right}
+main{max-width:860px;margin:0 auto;padding:clamp(18px,4vw,44px) max(4vw,16px) 90px}
+h1{font:700 clamp(28px,4.6vw,42px)/1.15 "Gowun Batang",serif;margin:0 0 8px;text-wrap:balance}
+h2{font:700 21px/1.3 "Gowun Batang",serif;margin:34px 0 12px}
+.sub{color:var(--muted);margin:0 0 16px}
+.note{font-size:14px;color:var(--muted)}
+button,.btn{min-height:44px;padding:0 18px;border-radius:22px;border:1px solid var(--cloth);background:var(--cloth);color:#fff;font:700 15px "Noto Sans KR",sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+button.ghost,.btn.ghost{background:transparent;color:var(--cloth)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,a:focus-visible,textarea:focus{outline:3px solid var(--ribbon);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+/* shelf */
+.shelf{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:26px 18px 0;border-bottom:10px solid var(--cloth);border-radius:4px;background:linear-gradient(var(--bg),var(--cloth-bg))}
+.spine{width:74px;height:250px;border-radius:5px 5px 2px 2px;background:var(--c,var(--cloth));color:#fff;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 6px 10px;box-shadow:inset -6px 0 0 rgba(0,0,0,.18),inset 4px 0 0 rgba(255,255,255,.08);position:relative}
+.spine b{writing-mode:vertical-rl;font:700 17px "Gowun Batang",serif;letter-spacing:.06em;max-height:170px;overflow:hidden}
+.spine small{font-size:11px;opacity:.85;writing-mode:vertical-rl;max-height:60px;overflow:hidden}
+.spine::after{content:"";position:absolute;top:-6px;right:12px;width:9px;height:44px;background:var(--ribbon);clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%)}
+.spine.empty{background:transparent;border:2px dashed var(--line);color:var(--muted)}
+.spine.empty::after{display:none}
+.covers{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:26px 20px;margin:8px 0 30px}
+.cv{display:block;text-decoration:none;color:var(--ink)}
+.cv .img{position:relative;aspect-ratio:3/5;border-radius:3px 8px 8px 3px;overflow:hidden;background:var(--c,var(--cloth));box-shadow:0 1px 0 var(--line),0 14px 26px -16px rgba(0,0,0,.55),inset 6px 0 0 rgba(0,0,0,.14);transition:transform .2s}
+.cv:hover .img,.cv:focus-visible .img{transform:translateY(-4px)}
+.cv .img img{width:100%;height:100%;object-fit:cover;display:block}
+.cv .img .gen{position:absolute;inset:0;padding:18px 14px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;font:700 19px/1.3 "Gowun Batang",serif}
+.cv .img .gen small{font:400 12px "Noto Sans KR",sans-serif;opacity:.85}
+.cv .img::after{content:"";position:absolute;top:-2px;right:16px;width:12px;height:58px;background:var(--ribbon);clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%);opacity:var(--rb,0)}
+.cv .meta{margin-top:10px;font-size:14px}.cv .meta b{display:block;font-size:15px}
+.cv.add .img{background:transparent;border:2px dashed var(--line);box-shadow:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:12px}
+.books{display:grid;gap:12px;margin-top:22px;padding:0;list-style:none}
+.books a{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink);min-height:60px}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:10px 0 4px}.bar i{display:block;height:100%;background:var(--cloth)}
+/* toc */
+.cover{border-left:14px solid var(--cloth);padding:6px 0 6px 20px;margin-bottom:22px}
+.part{font:700 17px "Gowun Batang",serif;color:var(--cloth);margin:28px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.toc{list-style:none;margin:0;padding:0}
+.toc a{display:grid;grid-template-columns:2.6em minmax(0,1fr) auto;gap:10px;align-items:center;min-height:52px;padding:8px 6px;border-bottom:1px dashed var(--line);text-decoration:none;color:var(--ink)}
+.toc .n{font:700 15px "Gowun Batang",serif;color:var(--muted);text-align:right}
+.toc .t b{font-weight:700}.toc .t span{color:var(--muted);font-size:14px;margin-left:6px}
+.toc .s{font-size:13px;white-space:nowrap;color:var(--muted);display:flex;gap:6px;align-items:center}
+.toc a.read .n{color:var(--ok)}
+.mark{display:inline-block;width:10px;height:16px;background:var(--ribbon);clip-path:polygon(0 0,100% 0,100% 100%,50% 75%,0 100%)}
+.check{color:var(--ok);font-weight:700}
+/* reader */
+.page{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:clamp(22px,5vw,56px);position:relative}
+.ribbon{position:absolute;top:-8px;right:28px;width:16px;height:70px;background:var(--ribbon);clip-path:polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)}
+.chno{font:700 44px/1 "Gowun Batang",serif;color:var(--cloth)}
+.epi{margin:18px 0 26px;padding-left:16px;border-left:3px solid var(--cloth);color:var(--muted);font-family:"Gowun Batang",serif;white-space:pre-line}
+.txt p{font:18px/1.95 "Gowun Batang",serif;margin:0 0 1.05em;max-width:68ch;position:relative;padding-right:34px;word-break:keep-all}
+.txt p .bm{position:absolute;right:0;top:4px;width:30px;height:30px;border:0;background:transparent;padding:0;min-height:0;cursor:pointer;opacity:.18;display:flex;align-items:flex-start;justify-content:center}
+.txt p:hover .bm,.txt p .bm:focus-visible,.txt p.here .bm{opacity:1}
+.txt p .bm i{display:block;width:11px;height:20px;background:var(--ribbon);clip-path:polygon(0 0,100% 0,100% 100%,50% 75%,0 100%)}
+.txt p.here{background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ribbon) 12%,transparent))}
+.nav2{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:28px}
+/* study */
+.study{margin-top:30px;border-top:3px double var(--line);padding-top:6px}
+.q{margin-bottom:18px}.q label{display:block;font-weight:700;margin-bottom:6px}
+textarea{width:100%;min-height:96px;font:16px/1.6 "Noto Sans KR",sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
+.quiz{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.quiz .opts{display:grid;gap:8px;margin-top:8px}
+.quiz .opts button{justify-content:flex-start;text-align:left;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;font-weight:500;padding:10px 14px;height:auto;line-height:1.45}
+.quiz .opts button.right{border-color:var(--ok);color:var(--ok);font-weight:700}
+.quiz .opts button.wrong{border-color:var(--bad);color:var(--bad)}
+.why{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--cloth-bg);font-size:15px}
+.summary{background:var(--cloth-bg);border-radius:10px;padding:14px 16px;white-space:pre-line}
+.empty{color:var(--muted);padding:30px 0}
+.status{font-size:14px;color:var(--muted);min-height:20px}
+@media (prefers-reduced-motion:no-preference){.page{animation:op .35s ease-out}@keyframes op{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+@media(max-width:600px){.crumb{display:none}.txt p{font-size:17px}.toc .t span{display:block;margin:0}}
+
+/* reader settings (보기 설정) */
+body{--rbg:var(--paper);--rink:var(--ink);--rfont:"Gowun Batang",serif;--rsize:18px;--rlh:1.95;--rpy:56px;--rpx:56px}
+body.reading,body.reading header{background:var(--rbg);color:var(--rink)}
+body.reading .brand,body.reading .crumb,body.reading .hdbtn{color:var(--rink)}
+.page{background:var(--rbg);color:var(--rink);padding:var(--rpy) var(--rpx);border-color:color-mix(in srgb,var(--rink) 14%,var(--rbg))}
+.page .note,.page .sub,.page .epi{color:color-mix(in srgb,var(--rink) 62%,var(--rbg))}
+.page h1,.page .chno{color:inherit}.page .chno{color:color-mix(in srgb,var(--cloth) 70%,var(--rink))}
+.txt p{font-family:var(--rfont);font-size:var(--rsize);line-height:var(--rlh);max-width:none}
+@media(max-width:600px){.txt p{font-size:var(--rsize)}.page{padding:max(14px,calc(var(--rpy) * .6)) max(12px,calc(var(--rpx) * .45))}}
+.hdr{display:flex;gap:6px;align-items:center}
+.hdbtn{min-height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--ink);font:700 14px "Noto Sans KR",sans-serif}
+.hdbtn.aa{font:700 17px "Gowun Batang",serif}
+.prog{position:fixed;left:0;top:0;height:3px;background:var(--ribbon);z-index:9;width:0;pointer-events:none}
+.sheet{position:fixed;z-index:20;right:16px;top:76px;width:min(380px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:auto;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px -18px rgba(0,0,0,.45);padding:16px 18px 18px}
+@media(max-width:600px){.sheet{left:0;right:0;top:auto;bottom:0;width:auto;max-height:72vh;border-radius:16px 16px 0 0}}
+.sheet h3{font:700 17px "Gowun Batang",serif;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center}
+.sheet .lab{font-size:13px;font-weight:700;color:var(--muted);margin:16px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font-weight:500}
+.chip[aria-pressed=true]{border:2px solid var(--cloth);font-weight:700}
+.sw{width:54px;height:44px;padding:0;justify-content:center;border-radius:10px;font:700 16px "Gowun Batang",serif}
+.rng{display:grid;grid-template-columns:3.6em 1fr 3.2em;gap:8px;align-items:center;font-size:14px}
+.rng input{width:100%;accent-color:var(--cloth)}
+.rng output{text-align:right;color:var(--muted)}
+.colors{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:14px}
+.colors input{width:44px;height:36px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px}
+/* 형광펜 */
+mark.hl{background:color-mix(in srgb,var(--hc) 62%,transparent);color:inherit;border-radius:3px;padding:.05em 0;cursor:pointer;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+mark.hl.memo::after{content:"✎";font:700 .62em "Noto Sans KR",sans-serif;vertical-align:super;margin-left:2px;color:color-mix(in srgb,var(--rink) 70%,var(--hc))}
+mark.hl.flash{outline:3px solid var(--ribbon)}
+.hlbar{position:fixed;z-index:25;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:28px;padding:8px 10px;box-shadow:0 14px 30px -12px rgba(0,0,0,.5);max-width:calc(100vw - 20px);flex-wrap:wrap;justify-content:center}
+.hlbar .dot{width:40px;height:40px;min-height:0;padding:0;border-radius:50%;border:2px solid transparent;background:var(--hc)}
+.hlbar .dot[aria-pressed=true]{border-color:var(--ink)}
+.hlbar .act{min-height:40px;padding:0 14px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:20px;font-weight:700}
+.memobox{position:fixed;z-index:26;left:50%;bottom:84px;transform:translateX(-50%);width:min(520px,calc(100vw - 20px));background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 14px 30px -12px rgba(0,0,0,.5)}
+.memobox blockquote{margin:0 0 10px;padding-left:10px;border-left:4px solid var(--hc);font-family:"Gowun Batang",serif;max-height:7.5em;overflow:auto}
+/* 모아 보기 */
+.hlfilter{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px}
+.hlfilter input[type=search]{min-height:44px;flex:1 1 200px;border:1px solid var(--line);border-radius:22px;padding:0 16px;background:var(--bg);color:var(--ink);font:15px "Noto Sans KR",sans-serif}
+.hlfilter .cdot{width:36px;height:36px;min-height:0;padding:0;border-radius:50%;background:var(--hc);border:2px solid transparent}
+.hlfilter .cdot[aria-pressed=true]{border-color:var(--ink)}
+.hlch{font:700 17px "Gowun Batang",serif;margin:26px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.hlch a{color:var(--ink);text-decoration:none}
+.hlitem{border-left:6px solid var(--hc);padding:4px 0 6px 14px;margin:0 0 18px}
+.hlitem q{display:block;font:17px/1.8 "Gowun Batang",serif;quotes:none}
+.hlitem .m{margin-top:6px;padding:8px 12px;border-radius:10px;background:var(--cloth-bg);white-space:pre-wrap;font-size:15px}
+.hlitem .ops{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.hlitem .ops a,.hlitem .ops button{min-height:36px;padding:0 12px;font-size:13px;border-radius:18px}
+.hlcount{display:inline-flex;align-items:center;gap:6px}
+@media (prefers-reduced-motion:no-preference){.page.flip{animation:flip .55s cubic-bezier(.3,.7,.3,1);transform-origin:left center}@keyframes flip{from{transform:perspective(1600px) rotateY(-28deg);opacity:.3}to{transform:none;opacity:1}}.page.flipback{animation:flipb .55s cubic-bezier(.3,.7,.3,1);transform-origin:right center}@keyframes flipb{from{transform:perspective(1600px) rotateY(28deg);opacity:.3}to{transform:none;opacity:1}}.page.nofx{animation:none}}
+
+/* 책 추가 · 설정 */
+.drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;position:relative;margin:8px 0 14px}
+.drop.on{border-color:var(--cloth);background:var(--cloth-bg)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.grid2 label,label.lab{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:700;color:var(--muted)}
+.grid2 input,.cover textarea{min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg);color:var(--ink);font:15px "Noto Sans KR",sans-serif;font-weight:400}
+.chk{display:flex;gap:8px;align-items:center;margin:8px 0;font-size:15px}
+.chk input{width:20px;height:20px;accent-color:var(--cloth)}
+pre.peek{white-space:pre-wrap;background:var(--cloth-bg);border-radius:10px;padding:10px 12px;font:13px/1.6 "Noto Sans KR",sans-serif;max-height:16em;overflow:auto}
+table.split{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+table.split th,table.split td{border-bottom:1px solid var(--line);padding:6px;vertical-align:top;text-align:left}
+table.split select,table.split input{min-height:38px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:4px 8px;width:100%;margin-bottom:4px}
+table.split tr.r-chapter{background:var(--cloth-bg)}table.split tr.r-part{background:color-mix(in srgb,var(--ribbon) 18%,transparent)}table.split tr.r-skip td{opacity:.5}
+table.split td:first-child{width:3em}table.split td:nth-child(2){width:8.5em}table.split td:nth-child(3){width:34%}
+ol.steps{padding-left:1.3em}ol.steps li{margin:6px 0}
+.cv.add .img{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;color:var(--muted)}
+.cover h2{font:700 19px "Gowun Batang",serif}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div><header><a class="brand" href="#lib">내 서재</a><span class="crumb" id="crumb"></span><span class="hdr"><a class="hdbtn btn" href="#hl" id="hlLink" style="background:transparent">형광펜·메모</a><a class="hdbtn btn" href="#set" style="background:transparent" aria-label="설정">설정</a><button class="hdbtn aa" id="aaBtn" aria-label="보기 설정 (글꼴·크기·색·여백)" title="보기 설정">가</button></span></header><div id="sheetHost"></div><div id="hlHost"></div>
+<main><p class="status" id="status">불러오는 중…</p><div id="view"></div></main>
+<script type="module" src="src/app.mjs"></script>
+</body>
+</html>

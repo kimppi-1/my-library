@@ -1,0 +1,20 @@
+내 서재 (my-library)
+
+This product includes src/ko-fix.mjs from hwp2docx (https://github.com/kimppi-1/hwp2docx),
+Copyright (c) 2026 kimppi-1, MIT License.
+
+This product bundles PDF.js (vendor/pdfjs), Copyright Mozilla Foundation,
+licensed under the Apache License, Version 2.0.
+
+At runtime (loaded from jsDelivr on demand, not bundled) this product uses:
+  tesseract.js and tesseract.js-core, licensed under the Apache License, Version 2.0
+  (https://github.com/naptha/tesseract.js), with Tesseract OCR language data
+  (https://github.com/tesseract-ocr/tessdata), Apache License, Version 2.0.
+
+Kiwi 한국어 형태소 분석기 (틀린 글자 바로잡기)
+  kiwi-nlp 0.21.0 (WebAssembly) — 사용할 때 jsDelivr에서 받음, LGPL-3.0
+  kiwipiepy_model 0.21.0 언어 모형 — vendor/kiwi (원본 그대로 gzip 압축·분할), LGPL-3.0
+  Copyright (c) bab2min (Minchul Lee) — https://github.com/bab2min/Kiwi
+
+Fonts are loaded from Google Fonts (Gowun Batang, Gowun Dodum, Nanum Myeongjo,
+Nanum Gothic, Noto Serif KR, Noto Sans KR), SIL Open Font License 1.1.
