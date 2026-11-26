@@ -19,8 +19,8 @@ const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s
 export async function textLayer(page) {
   const tc = await page.getTextContent(); const vp = page.getViewport({ scale: 1 });
   const items = tc.items.filter((it) => it.str && it.str.trim());
-  const han = items.reduce((a, it) => a + (it.str.match(/[가-힣]/g) || []).length, 0);
-  if (han < 20) return null;
+  const letters = items.reduce((a, it) => a + (it.str.match(/[\p{L}]/gu) || []).length, 0);
+  if (letters < 40) return null;
   const rows = [];
   for (const it of items) {
     const h = Math.abs(it.transform[3]) || it.height || 10, x = it.transform[4], y = vp.height - it.transform[5];
@@ -76,7 +76,7 @@ async function cropEng(canvas, box, slot = 0) {
 }
 const garbage = (s) => { if (s.length < 3) return false; const han = (s.match(/[가-힣]/g) || []).length, jamo = (s.match(/[ㄱ-ㅣ]/g) || []).length, dig = (s.match(/\d/g) || []).length, lat = (s.match(/[A-Za-z]/g) || []).length; return dig + lat + jamo >= Math.max(3, s.length * 0.5) && han <= s.length * 0.4; };
 const REFOK = /^\d{1,3}:\d{1,3}([\-–~]\d{1,3}(:\d{1,3})?)?$/;
-async function reread(canvas, lines, log, slot = 0) {
+async function reread(canvas, lines, log, slot = 0, lang = 'kor') {
   for (const l of lines) {
     const ws = l.words; let line = l.text;
     for (let i = 0; i < ws.length; i++) {
@@ -87,9 +87,9 @@ async function reread(canvas, lines, log, slot = 0) {
           const tail = s.match(/\d[\d\-–~]*\d/);
           if (tail) { const nw = s.slice(0, tail.index) + c + s.slice(tail.index + tail[0].length); if (nw !== s && line.includes(s)) { line = line.replace(s, nw); log.push([s, nw]); continue; } }
         }
-        if (!garbage(s)) continue;
+        if (!garbage(s) || lang !== 'kor') continue;
       }
-      if (garbage(s)) {
+      if (lang === 'kor' && garbage(s)) {
         let j = i; const isG = (k) => k < ws.length && garbage(ws[k].text), br = (k) => k < ws.length && (isG(k) || (ws[k].text.length <= 3 && !/^[가-힣]{2,3}$/.test(ws[k].text)));
         while (br(j + 1) && (isG(j + 1) || isG(j + 2))) j++;
         const span = ws.slice(i, j + 1), box = { x0: Math.min(...span.map((x) => x.x0)), y0: Math.min(...span.map((x) => x.y0)), x1: Math.max(...span.map((x) => x.x1)), y1: Math.max(...span.map((x) => x.y1)) };
@@ -110,12 +110,12 @@ async function reread(canvas, lines, log, slot = 0) {
   }
 }
 // 스캔한 쪽 하나 읽기
-export async function ocrPage(page, { dpi = 300, onStep, slot = 0 } = {}) {
+export async function ocrPage(page, { dpi = 300, onStep, slot = 0, lang = 'kor' } = {}) {
   const vp = page.getViewport({ scale: dpi / 72 });
   const c = canvasOf(Math.round(vp.width), Math.round(vp.height));
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
   await page.render({ canvasContext: g, viewport: vp }).promise;
-  return ocrCanvas(c, { onStep, slot });
+  return ocrCanvas(c, { onStep, slot, lang });
 }
 // 사진(jpg·png) 한 장 = 한 쪽. 너무 크면 긴 변 3500px로 줄인다
 export async function ocrImage(file, opts = {}) {
@@ -123,18 +123,19 @@ export async function ocrImage(file, opts = {}) {
   const c = canvasOf(Math.round(bm.width * k), Math.round(bm.height * k)); const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0, c.width, c.height);
   return ocrCanvas(c, opts);
 }
-export async function ocrCanvas(c, { onStep, slot = 0 } = {}) {
-  let lines = await readLines('kor', '6', await blobOf(c), slot);
+export async function ocrCanvas(c, { onStep, slot = 0, lang = 'kor' } = {}) {
+  let lines = await readLines(lang, '6', await blobOf(c), slot);
   const conf = (L) => { const w = L.flatMap((l) => l.words); return w.length ? w.reduce((a, x) => a + x.conf, 0) / w.length : 0; };
   // 거꾸로 스캔된 쪽: 믿음직하지 않으면 뒤집어 다시 읽어 더 나은 쪽을 쓴다
   if (conf(lines) < 60) {
     const r = canvasOf(c.width, c.height), rg = r.getContext('2d'); rg.translate(c.width, c.height); rg.rotate(Math.PI); rg.drawImage(c, 0, 0);
-    const L2 = await readLines('kor', '6', await blobOf(r), slot);
+    const L2 = await readLines(lang, '6', await blobOf(r), slot);
     if (conf(L2) > conf(lines) + 8) { lines = L2; c = r; }
   }
   const log = [];
+  // 장절 다시 읽기는 모든 언어, 영어 조각 다시 읽기는 한국어 책에서만(reread 안에서 한글 기준으로 판단)
   onStep?.('reread');
-  await reread(c, lines, log, slot);
+  await reread(c, lines, log, slot, lang);
   return { w: c.width, h: c.height, lines: lines.map(({ text, x0, y0, x1, y1, h }) => ({ text, x0, y0, x1, y1, h })), fixes: log };
 }
 

@@ -1,5 +1,7 @@
 # 내 서재 (my-library)
 
+**한국어** · [English](README.en.md) · [中文](README.zh.md) · [日本語](README.ja.md)
+
 가지고 있는 책의 PDF(스캔한 것도 됩니다)나 책장 사진을 넣으면, **이 기기 안에서** 글자를 읽어 장별로 나누고
 한 장씩 읽으며 익힐 수 있게 해 주는 웹 앱입니다. 설치 없이 브라우저로 쓰거나, 앱처럼 설치해 쓸 수 있습니다.
 
@@ -19,6 +21,7 @@
   - **복사해서 쓰기(키 없이)**: 요청문을 복사해 평소 쓰는 AI 앱(Claude, ChatGPT, Gemini …)에 붙여 넣고 답을 다시 붙여 넣습니다.
   - **API 키**: Claude(Anthropic), ChatGPT(OpenAI), Gemini(Google) 중 자기 키를 넣으면 앱이 바로 만듭니다. 키는 그 기기에만 저장됩니다.
 - **백업**: 책과 기록을 파일 하나로 내보내 다른 기기에서 불러옵니다.
+- **여러 언어**: 화면은 한국어·English·中文·日本語 가운데 골라 쓰고(오른쪽 위), 책은 한국어·영어·중국어(간체·번체)·일본어 책을 읽을 수 있습니다. AI 질문·문제도 고른 화면 언어로 만듭니다.
 
 ## 개인 정보와 저작권
 
@@ -54,6 +57,7 @@
 | `src/glossary.mjs` | 중요한 낱말 지키기 |
 | `src/ai.mjs` | AI 고르기와 요청문 |
 | `src/store.mjs` | 기기 안 저장소(IndexedDB) |
+| `src/i18n.mjs`, `src/i18n-dict.mjs` | 화면 언어 바꾸기와 번역 사전 |
 | `src/ko-fix.mjs` | hwp2docx의 한글 오타 바로잡기 |
 | `vendor/` | pdf.js, Kiwi 언어 모형 |
 | `sw.js`, `manifest.webmanifest` | 설치·인터넷 없이 열기 |

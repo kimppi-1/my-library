@@ -1,6 +1,7 @@
 import { db as store, persist, dumpAll, loadAll, delPrefix, putRaw, getRaw, delRaw } from './store.mjs';
 import * as AI from './ai.mjs';
 import { renderAdd, renderImport } from './importer.mjs';
+import { t, startI18n, LANGS, lang, setLang } from './i18n.mjs';
 
 const view=document.getElementById("view"),statusEl=document.getElementById("status"),crumb=document.getElementById("crumb");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -31,10 +32,10 @@ function route(){
 function renderLib(){
   crumb.textContent="";
   if(!books.length){view.innerHTML=`<h1>내 서재</h1><p class="sub">가지고 있는 책의 PDF를 넣으면 장별로 나눠 읽고, 읽은 곳 표시·책갈피·형광펜·메모·질문과 문제로 익힐 수 있어요. 모든 것은 이 기기 안에만 저장돼요.</p><div class="row"><a class="btn" href="#add">첫 책 추가하기</a><a class="btn ghost" href="#set">설정·AI·백업</a></div>`;return}
-  const cov=B=>{const src=String(B.cover||"");return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src)?`<img src="${esc(src)}" alt="${esc(B.title)} 표지">`:`<div class="gen"><span>${esc(B.title)}</span><small>${esc(B.author||"")}</small></div>`};
+  const cov=B=>{const src=String(B.cover||"");return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src)?`<img src="${esc(src)}" alt="${esc(B.title)} 표지">`:`<div class="gen nt"><span>${esc(B.title)}</span><small>${esc(B.author||"")}</small></div>`};
   view.innerHTML=`<h1>내 서재</h1><p class="sub">읽고 싶은 책 표지를 누르면 목차가 열려요. 한 장씩 읽고, 책갈피를 꽂고, 질문과 문제로 익혀 가요.</p>
   <div class="covers">${books.map(B=>{const p=prog(B.id),n=(B.toc||[]).length,r=Object.keys(p.read||{}).length,pc=n?Math.round(r/n*100):0;
-    return `<a class="cv" href="#b-${esc(B.id)}" style="--c:${esc(B.color||"")};--rb:${p.bookmark?1:0}"><div class="img">${cov(B)}</div><div class="meta"><b>${esc(B.title)}</b><span class="note">${esc(B.author||"")}</span><span class="bar"><i style="width:${pc}%"></i></span><span class="note">${r}/${n}장${p.bookmark?` · 책갈피 ${pad(p.bookmark.no)}장`:""}</span></div></a>`}).join("")}
+    return `<a class="cv" href="#b-${esc(B.id)}" style="--c:${esc(B.color||"")};--rb:${p.bookmark?1:0}"><div class="img">${cov(B)}</div><div class="meta"><b class="nt">${esc(B.title)}</b><span class="note nt">${esc(B.author||"")}</span><span class="bar"><i style="width:${pc}%"></i></span><span class="note">${r}/${n}장${p.bookmark?` · 책갈피 ${pad(p.bookmark.no)}장`:""}</span></div></a>`}).join("")}
     <a class="cv add" href="#add"><div class="img">＋<br>책 추가</div></a></div>`;
 }
 
@@ -43,15 +44,15 @@ function renderBook(bid){
   crumb.textContent=B.title;
   const p=prog(bid),toc=B.toc||[],r=Object.keys(p.read||{}).length,pc=toc.length?Math.round(r/toc.length*100):0;
   const next=toc.find(c=>!(p.read||{})[c.no]);
-  let html=`<div class="cover"><h1>${esc(B.title)}</h1><p class="sub">${esc(B.author||"")}${B.publisher?" · "+esc(B.publisher):""}${B.year?" · "+esc(B.year):""}</p>
+  let html=`<div class="cover"><h1 class="nt">${esc(B.title)}</h1><p class="sub nt">${esc(B.author||"")}${B.publisher?" · "+esc(B.publisher):""}${B.year?" · "+esc(B.year):""}</p>
   <div class="bar"><i style="width:${pc}%"></i></div><p class="note">${toc.length}장 중 ${r}장 읽음 (${pc}%)</p>
-  <div class="row">${p.bookmark?`<a class="btn" href="#r-${esc(bid)}-${p.bookmark.no}"><span class="mark"></span> 책갈피에서 이어 읽기 · ${pad(p.bookmark.no)}장</a>`:""}${next?`<a class="btn ${p.bookmark?"ghost":""}" href="#r-${esc(bid)}-${next.no}">${r?"다음 안 읽은 장":"처음부터 읽기"} · ${esc(next.title)}</a>`:""}<a class="btn ghost" href="#hl-${esc(bid)}">형광펜·메모 모아 보기 (${HL.filter(h=>h.bid===bid).length})</a><a class="btn ghost" href="#gen-${esc(bid)}">모든 장 질문·문제 한꺼번에 만들기</a><a class="btn ghost" href="#edit-${esc(bid)}">책 정보·장 나누기 고치기</a></div>
+  <div class="row">${p.bookmark?`<a class="btn" href="#r-${esc(bid)}-${p.bookmark.no}"><span class="mark"></span> 책갈피에서 이어 읽기 · ${pad(p.bookmark.no)}장</a>`:""}${next?`<a class="btn ${p.bookmark?"ghost":""}" href="#r-${esc(bid)}-${next.no}">${r?"다음 안 읽은 장":"처음부터 읽기"} · <span class="nt">${esc(next.title)}</span></a>`:""}<a class="btn ghost" href="#hl-${esc(bid)}">형광펜·메모 모아 보기 (${HL.filter(h=>h.bid===bid).length})</a><a class="btn ghost" href="#gen-${esc(bid)}">모든 장 질문·문제 한꺼번에 만들기</a><a class="btn ghost" href="#edit-${esc(bid)}">책 정보·장 나누기 고치기</a></div>
   ${B.note?`<p class="note" style="margin-top:12px">${esc(B.note)}</p>`:""}</div>`;
   let part=null;html+=`<ul class="toc">`;
   for(const c of toc){
-    if(c.part&&c.part!==part){part=c.part;html+=`</ul><div class="part">${esc(part)}</div><ul class="toc">`}
+    if(c.part&&c.part!==part){part=c.part;html+=`</ul><div class="part nt">${esc(part)}</div><ul class="toc">`}
     const rd=(p.read||{})[c.no],bm=p.bookmark&&p.bookmark.no===c.no;
-    html+=`<li><a href="#r-${esc(bid)}-${c.no}" class="${rd?"read":""}"><span class="n">${c.no?pad(c.no):"·"}</span><span class="t"><b>${esc(c.title)}</b>${c.subtitle?`<span>${esc(c.subtitle)}</span>`:""}</span><span class="s">${bm?`<span class="mark" title="책갈피"></span>`:""}${rd?`<span class="check">읽음</span>`:""}</span></a></li>`;
+    html+=`<li><a href="#r-${esc(bid)}-${c.no}" class="${rd?"read":""}"><span class="n">${c.no?pad(c.no):"·"}</span><span class="t nt"><b>${esc(c.title)}</b>${c.subtitle?`<span>${esc(c.subtitle)}</span>`:""}</span><span class="s">${bm?`<span class="mark" title="책갈피"></span>`:""}${rd?`<span class="check">읽음</span>`:""}</span></a></li>`;
   }
   view.innerHTML=html+`</ul>`;
 }
@@ -75,16 +76,16 @@ async function renderChapter(bid,no,jump=-1){
   const p=prog(bid),rd=(p.read||{})[no],bmPara=p.bookmark&&p.bookmark.no===no?p.bookmark.para:-1;
   const prev=toc[i-1],next=toc[i+1];
   view.innerHTML=`<article class="page">${p.bookmark&&p.bookmark.no===no?`<span class="ribbon" title="책갈피"></span>`:""}
-    <p class="note" style="margin:0 0 6px">${esc(meta.part||"")}</p>
+    <p class="note nt" style="margin:0 0 6px">${esc(meta.part||"")}</p>
     ${no?`<div class="chno">${pad(no)}</div>`:""}
-    <h1>${esc(C.title||meta.title)}</h1>${(C.subtitle||meta.subtitle)?`<p class="sub" style="font-size:19px;font-family:'Gowun Batang',serif">${esc(C.subtitle||meta.subtitle)}</p>`:""}
-    ${C.epigraph?`<div class="epi">${esc(C.epigraph)}</div>`:""}
-    <div class="txt" id="txt" data-bid="${esc(bid)}" data-no="${no}">${(C.text||[]).map((t,k)=>`<p class="${k===bmPara?"here":""}" id="p${k}" data-k="${k}">${paraHTML(t,bid,no,k)}<button class="bm" data-k="${k}" aria-label="여기에 책갈피 꽂기"><i></i></button></p>`).join("")}</div>
+    <h1 class="nt">${esc(C.title||meta.title)}</h1>${(C.subtitle||meta.subtitle)?`<p class="sub nt" style="font-size:19px;font-family:'Gowun Batang',serif">${esc(C.subtitle||meta.subtitle)}</p>`:""}
+    ${C.epigraph?`<div class="epi nt">${esc(C.epigraph)}</div>`:""}
+    <div class="txt nt" id="txt" data-bid="${esc(bid)}" data-no="${no}">${(C.text||[]).map((t,k)=>`<p class="${k===bmPara?"here":""}" id="p${k}" data-k="${k}">${paraHTML(t,bid,no,k)}<button class="bm" data-k="${k}" aria-label="여기에 책갈피 꽂기"><i></i></button></p>`).join("")}</div>
     <p class="note">스캔한 책을 글자 인식으로 옮긴 본문이라 오탈자, 특히 성경 장절 표기가 틀린 곳이 있어요. 인용할 때는 종이책으로 확인하세요.</p>
     <p class="note" id="hlInfo"></p>
     <div class="row" style="margin-top:14px"><button id="readBtn" class="${rd?"ghost":""}">${rd?"읽음 표시됨 · 취소":"다 읽었어요"}</button><button class="ghost" id="bmEnd">이 장에 책갈피</button></div>
     <section class="study" id="study"></section>
-    <div class="nav2">${prev?`<a class="btn ghost" id="prevA" href="#r-${esc(bid)}-${prev.no}">← ${esc(prev.title)}</a>`:"<span></span>"}<a class="btn ghost" href="#b-${esc(bid)}">목차</a>${next?`<a class="btn ghost" id="nextA" href="#r-${esc(bid)}-${next.no}">${esc(next.title)} →</a>`:"<span></span>"}</div>
+    <div class="nav2">${prev?`<a class="btn ghost" id="prevA" href="#r-${esc(bid)}-${prev.no}">← <span class="nt">${esc(prev.title)}</span></a>`:"<span></span>"}<a class="btn ghost" href="#b-${esc(bid)}">목차</a>${next?`<a class="btn ghost" id="nextA" href="#r-${esc(bid)}-${next.no}"><span class="nt">${esc(next.title)}</span> →</a>`:"<span></span>"}</div>
   </article>`;
   const pg=view.querySelector(".page");
   if(lastCh&&lastCh.bid===bid&&lastCh.no!==no&&RS.turn!=="none")pg.classList.add(RS.turn==="flip"?(no>lastCh.no?"flip":"flipback"):"x");else pg.classList.add("nofx");
@@ -112,15 +113,15 @@ async function renderStudy(bid,no,C){
     document.getElementById("gen").addEventListener("click",()=>generate(bid,no,C));return;
   }
   let N={answers:[],picked:[]};if(db)try{const s=await db.doc(`notes/${bid}-${no}`).get();if(s.exists)N={answers:[],picked:[],...JSON.parse(JSON.stringify(s.data()))}}catch(e){}
-  box.innerHTML=`<h2>한눈에 보기</h2><div class="summary">${esc(S.summary||"")}</div>
-    <h2>생각할 질문</h2>${(S.reflect||[]).map((q,k)=>`<div class="q"><label for="a${k}">${k+1}. ${esc(q)}</label><textarea id="a${k}">${esc(N.answers[k]||"")}</textarea></div>`).join("")}
+  box.innerHTML=`<h2>한눈에 보기</h2><div class="summary nt">${esc(S.summary||"")}</div>
+    <h2>생각할 질문</h2>${(S.reflect||[]).map((q,k)=>`<div class="q"><label class="nt" for="a${k}">${k+1}. ${esc(q)}</label><textarea id="a${k}">${esc(N.answers[k]||"")}</textarea></div>`).join("")}
     <p class="note" id="saveNote">쓰고 나서 칸 밖을 누르면 저장돼요.</p>
-    <h2>확인 문제</h2><ol class="quiz">${(S.quiz||[]).map((Q,k)=>`<li data-k="${k}"><b>${esc(Q.q)}</b><div class="opts">${(Q.options||[]).map((o,j)=>`<button data-j="${j}">${"①②③④⑤"[j]||""} ${esc(o)}</button>`).join("")}</div><div class="why" hidden></div></li>`).join("")}</ol>
+    <h2>확인 문제</h2><ol class="quiz">${(S.quiz||[]).map((Q,k)=>`<li data-k="${k}"><b class="nt">${esc(Q.q)}</b><div class="opts">${(Q.options||[]).map((o,j)=>`<button class="nt" data-j="${j}">${"①②③④⑤"[j]||""} ${esc(o)}</button>`).join("")}</div><div class="why" hidden></div></li>`).join("")}</ol>
     <p class="note" id="score"></p>
     <div class="row" style="margin-top:12px"><button class="ghost" id="regen">질문·문제 새로 만들기</button></div>`;
   const saveAns=async()=>{const answers=(S.reflect||[]).map((_,k)=>document.getElementById("a"+k).value);if(JSON.stringify(answers)===JSON.stringify(N.answers))return;N.answers=answers;N.updatedAt=new Date().toISOString();try{await db.doc(`notes/${bid}-${no}`).set(N);document.getElementById("saveNote").textContent="저장했어요."}catch(e){document.getElementById("saveNote").textContent="저장하지 못했어요. 다시 시도해 주세요."}};
   (S.reflect||[]).forEach((_,k)=>document.getElementById("a"+k).addEventListener("blur",saveAns));
-  const showQ=(li,Q,j)=>{li.querySelectorAll(".opts button").forEach((b,x)=>{b.disabled=true;if(x===Q.answer)b.classList.add("right");else if(x===j)b.classList.add("wrong")});const w=li.querySelector(".why");w.hidden=false;w.textContent=(j===Q.answer?"맞았어요. ":"정답은 "+("①②③④⑤"[Q.answer]||"")+"번이에요. ")+(Q.why||"")};
+  const showQ=(li,Q,j)=>{li.querySelectorAll(".opts button").forEach((b,x)=>{b.disabled=true;if(x===Q.answer)b.classList.add("right");else if(x===j)b.classList.add("wrong")});const w=li.querySelector(".why");w.hidden=false;w.innerHTML=esc(j===Q.answer?t("맞았어요."):t("정답은 {n}번이에요.",{n:"①②③④⑤"[Q.answer]||""}))+` <span class="nt">${esc(Q.why||"")}</span>`};
   const scoreUpd=()=>{const done=(N.picked||[]).filter(x=>x!=null).length,ok=(N.picked||[]).filter((x,k)=>x!=null&&x===(S.quiz[k]||{}).answer).length;document.getElementById("score").textContent=done?`${done}문제 중 ${ok}문제 맞힘`:""};
   box.querySelectorAll(".quiz li").forEach(li=>{const k=+li.dataset.k,Q=S.quiz[k];if(N.picked&&N.picked[k]!=null)showQ(li,Q,N.picked[k]);
     li.querySelectorAll(".opts button").forEach(b=>b.addEventListener("click",async()=>{const j=+b.dataset.j;showQ(li,Q,j);N.picked=N.picked||[];N.picked[k]=j;for(let x=0;x<S.quiz.length;x++)if(N.picked[x]===undefined)N.picked[x]=null;scoreUpd();try{await db.doc(`notes/${bid}-${no}`).set(N)}catch(e){}}))});
@@ -137,14 +138,14 @@ async function generate(bid,no,C,again){
   const B=books.find(x=>x.id===bid)||{};
   const prompt=AI.promptOne(B,{...C,no},AIC,again);
   if(AIC.provider==="manual")return manualBox(box,prompt,t=>{const S=AI.cleanStudy(AI.parseStudy(t));return saveStudy(bid,no,C,S,again).then(()=>renderStudy(bid,no,C))});
-  box.innerHTML=`<h2>생각할 질문과 확인 문제</h2><p class="note">${esc(AI.PROVIDERS[AIC.provider].name)}가 이 장을 읽고 질문과 문제를 만들고 있어요… (30초쯤)</p>`;
+  box.innerHTML=`<h2>생각할 질문과 확인 문제</h2><p class="note"><span class="nt">${esc(AI.PROVIDERS[AIC.provider].name)}</span>가 이 장을 읽고 질문과 문제를 만들고 있어요… (30초쯤)</p>`;
   try{const S=AI.cleanStudy(AI.parseStudy(await AI.ask(AIC,prompt)));await saveStudy(bid,no,C,S,again);renderStudy(bid,no,C)}
-  catch(e){box.innerHTML=`<h2>생각할 질문과 확인 문제</h2><p class="note">만들지 못했어요: ${esc(e.message||e)}</p><div class="row"><button id="gen">다시 시도</button><a class="btn ghost" href="#set">AI 설정</a></div>`;document.getElementById("gen").addEventListener("click",()=>generate(bid,no,C,again))}
+  catch(e){box.innerHTML=`<h2>생각할 질문과 확인 문제</h2><p class="note">만들지 못했어요: <span class="nt">${esc(e.message||e)}</span></p><div class="row"><button id="gen">다시 시도</button><a class="btn ghost" href="#set">AI 설정</a></div>`;document.getElementById("gen").addEventListener("click",()=>generate(bid,no,C,again))}
 }
 // 키 없이: 요청문을 복사해 평소 쓰는 AI 앱(Claude·ChatGPT·Gemini 등)에 붙여 넣고, 답을 붙여 넣는다
 function manualBox(box,prompt,onAnswer){
   box.innerHTML=`<h2>질문·문제 만들기 (복사해서 쓰기)</h2>
-  <ol class="steps"><li><button id="cp">요청문 복사</button> 를 누르고</li><li>평소 쓰는 AI 앱(Claude, ChatGPT, Gemini …)에 붙여 넣어 보내세요.</li><li>AI의 답을 통째로 복사해 아래 칸에 붙여 넣고 <b>넣기</b>를 누르세요.</li></ol>
+  <ol class="steps"><li><button id="cp">요청문 복사</button></li><li>평소 쓰는 AI 앱(Claude, ChatGPT, Gemini …)에 붙여 넣어 보내세요.</li><li>AI의 답을 통째로 복사해 아래 칸에 붙여 넣고 '넣기'를 누르세요.</li></ol>
   <textarea id="ans" placeholder="AI의 답을 여기에 붙여 넣기" style="min-height:140px"></textarea>
   <div class="row" style="margin-top:8px"><button id="put">넣기</button><span class="note" id="mn"></span></div>
   <details><summary class="note">요청문 보기</summary><pre class="peek">${esc(prompt)}</pre></details>`;
@@ -157,7 +158,7 @@ async function renderGenAll(bid){
   crumb.textContent=B.title;AIC=AI.loadAI();
   const toc=B.toc||[];const have=new Set((await db.collection("study").get()).docs.map(d=>d.id));
   const left=toc.filter(c=>!have.has(`${bid}-${c.no}`));
-  view.innerHTML=`<h1>질문·문제 한꺼번에 만들기</h1><p class="sub">『${esc(B.title)}』 ${toc.length}장 가운데 ${toc.length-left.length}장은 이미 있어요. 남은 ${left.length}장을 만들어요.</p>
+  view.innerHTML=`<h1>질문·문제 한꺼번에 만들기</h1><p class="sub">『<span class="nt">${esc(B.title)}</span>』 ${toc.length}장 가운데 ${toc.length-left.length}장은 이미 있어요. 남은 ${left.length}장을 만들어요.</p>
   <div class="cover"><p>지금 고른 AI: <b>${esc(AI.PROVIDERS[AIC.provider].name)}</b> <a href="#set">바꾸기</a></p><div id="ga"></div></div>`;
   const ga=view.querySelector("#ga");
   if(!left.length){ga.innerHTML=`<p class="note">모든 장에 질문과 문제가 있어요.</p><a class="btn ghost" href="#b-${esc(bid)}">목차로</a>`;return}
@@ -168,17 +169,17 @@ async function renderGenAll(bid){
     if(g.length)groups.push(g);
     let gi=0;
     const step=()=>{if(gi>=groups.length){ga.innerHTML=`<p>다 만들었어요.</p><a class="btn" href="#b-${esc(bid)}">목차로</a>`;return}
-      const G=groups[gi];ga.innerHTML=`<p class="note">묶음 ${gi+1} / ${groups.length} · ${G.map(c=>c.no+"장").join(", ")}</p><div id="mb"></div>`;
+      const G=groups[gi];ga.innerHTML=`<p class="note">${t("묶음 {a} / {b}",{a:gi+1,b:groups.length})} · ${G.map(c=>t("{n}장",{n:c.no})).join(", ")}</p><div id="mb"></div>`;
       manualBox(ga.querySelector("#mb"),AI.promptMany(B,G,AIC),async t=>{const all=AI.parseStudy(t);let ok=0;for(const c of G){const S=all[c.no]||all[String(c.no)];if(!S)continue;await saveStudy(bid,c.no,cache[`${bid}-${c.no}`]||await getChapter(bid,c.no),AI.cleanStudy(S));ok++}if(!ok)throw new Error("none");gi++;step()})};
     step();return;
   }
   let stop=false;ga.innerHTML=`<div class="bar"><i id="gb" style="width:0"></i></div><p class="note" id="gn"></p><div class="row"><button class="ghost" id="gs">멈추기</button></div><ul class="note" id="gl"></ul>`;
   ga.querySelector("#gs").onclick=()=>{stop=true};
   let done=0,fail=0;
-  const lane=async()=>{while(!stop&&left.length){const c=left.shift();try{const C=await getChapter(bid,c.no);const S=AI.cleanStudy(AI.parseStudy(await AI.ask(AIC,AI.promptOne(B,{...C,no:c.no},AIC))));await saveStudy(bid,c.no,C,S);done++}catch(e){fail++;ga.querySelector("#gl").insertAdjacentHTML("beforeend",`<li>${c.no}장: ${esc(e.message||e)}</li>`);if(/key|401|403|인증|API/i.test(String(e.message)))stop=true}
+  const lane=async()=>{while(!stop&&left.length){const c=left.shift();try{const C=await getChapter(bid,c.no);const S=AI.cleanStudy(AI.parseStudy(await AI.ask(AIC,AI.promptOne(B,{...C,no:c.no},AIC))));await saveStudy(bid,c.no,C,S);done++}catch(e){fail++;ga.querySelector("#gl").insertAdjacentHTML("beforeend",`<li>${c.no}장: <span class="nt">${esc(e.message||e)}</span></li>`);if(/key|401|403|인증|API/i.test(String(e.message)))stop=true}
     ga.querySelector("#gb").style.width=((done+fail)/(done+fail+left.length)*100)+"%";ga.querySelector("#gn").textContent=`${done}장 만듦${fail?` · ${fail}장 실패`:""} · 남은 ${left.length}장`}};
   await Promise.all([lane(),lane()]);
-  ga.querySelector("#gn").textContent+=stop?" · 멈췄어요":" · 끝났어요";ga.insertAdjacentHTML("beforeend",`<a class="btn" href="#b-${esc(bid)}">목차로</a>`);
+  ga.querySelector("#gn").textContent=`${done}장 만듦${fail?` · ${fail}장 실패`:""} · 남은 ${left.length}장 · ${stop?"멈췄어요":"끝났어요"}`;ga.insertAdjacentHTML("beforeend",`<a class="btn" href="#b-${esc(bid)}">목차로</a>`);
 }
 
 /* ───── 보기 설정: 글꼴·크기·줄 간격·배경·글씨색·여백·장 넘김 ───── */
@@ -266,7 +267,7 @@ function memoBox(id){
   const h=HL.find(x=>x.id===id);if(!h)return;
   document.querySelector(".memobox")?.remove();
   const el=document.createElement("div");el.className="memobox";el.style.setProperty("--hc",(HC[h.color]||HC.yellow)[1]);
-  el.innerHTML=`<blockquote>${esc(h.text)}</blockquote><label class="note" for="memoTa">메모 (설교·나눔에 쓸 생각, 질문 등)</label><textarea id="memoTa">${esc(h.memo||"")}</textarea><div class="row" style="margin-top:8px"><button id="memoSave">저장</button><button class="ghost" id="memoCancel">닫기</button></div>`;
+  el.innerHTML=`<blockquote class="nt">${esc(h.text)}</blockquote><label class="note" for="memoTa">메모 (설교·나눔에 쓸 생각, 질문 등)</label><textarea id="memoTa">${esc(h.memo||"")}</textarea><div class="row" style="margin-top:8px"><button id="memoSave">저장</button><button class="ghost" id="memoCancel">닫기</button></div>`;
   document.getElementById("hlHost").appendChild(el);
   const ta=el.querySelector("textarea");ta.focus();
   el.querySelector("#memoSave").onclick=async()=>{await updHL(id,{memo:ta.value.trim()});el.remove();statusEl.textContent="메모를 저장했어요.";closeBar()};
@@ -304,8 +305,8 @@ function renderHL(bidF){
   if(!HL.length)html+=`<p class="empty">아직 칠한 곳이 없어요. 책을 읽다가 글자를 끌어 고르면 형광펜 단추가 나타나요.</p>`;
   let key=null;
   for(const h of list){const B=books.find(b=>b.id===h.bid)||{},k=h.bid+"-"+h.no;
-    if(k!==key){key=k;html+=`<div class="hlch"><a href="#r-${esc(h.bid)}-${h.no}">${books.length>1||!bidF?esc(B.title||"")+" · ":""}${h.no?pad(h.no)+"장 ":""}${esc(h.chTitle||"")}</a></div>`}
-    html+=`<div class="hlitem" style="--hc:${(HC[h.color]||HC.yellow)[1]}" data-id="${esc(h.id)}"><q>${esc(h.text)}</q>${h.memo?`<div class="m">${esc(h.memo)}</div>`:""}
+    if(k!==key){key=k;html+=`<div class="hlch"><a href="#r-${esc(h.bid)}-${h.no}">${books.length>1||!bidF?`<span class="nt">${esc(B.title||"")} · </span>`:""}${h.no?t("{n}장",{n:pad(h.no)})+" ":""}<span class="nt">${esc(h.chTitle||"")}</span></a></div>`}
+    html+=`<div class="hlitem" style="--hc:${(HC[h.color]||HC.yellow)[1]}" data-id="${esc(h.id)}"><q class="nt">${esc(h.text)}</q>${h.memo?`<div class="m nt">${esc(h.memo)}</div>`:""}
     <div class="ops"><a class="btn ghost" href="#r-${esc(h.bid)}-${h.no}@${(h.spans[0]||{}).para||0}">본문에서 보기</a><button class="ghost" data-op="memo">${h.memo?"메모 고치기":"메모 달기"}</button><button class="ghost" data-op="del">지우기</button><span class="note">${esc((h.at||"").slice(0,10))}</span></div></div>`}
   view.innerHTML=html;
   const q=document.getElementById("hlQ");q.oninput=()=>{hlF.q=q.value.trim();clearTimeout(q.t);q.t=setTimeout(()=>{renderHL(bidF);const n=document.getElementById("hlQ");n.focus();n.setSelectionRange(n.value.length,n.value.length)},250)};
@@ -314,7 +315,7 @@ function renderHL(bidF){
   document.getElementById("hlM").onclick=()=>{hlF.memo=!hlF.memo;renderHL(bidF)};
   view.querySelectorAll(".hlitem").forEach(el=>{const id=el.dataset.id;el.querySelector('[data-op="memo"]').onclick=()=>memoBox(id);el.querySelector('[data-op="del"]').onclick=async()=>{if(confirm("이 형광펜과 메모를 지울까요?"))await delHL(id)}});
   document.getElementById("hlCopy").onclick=async()=>{let t="",k0=null;for(const h of list){const B=books.find(b=>b.id===h.bid)||{},k=h.bid+"-"+h.no;if(k!==k0){k0=k;t+=`\n『${B.title||""}』 ${h.no?h.no+"장 ":""}${h.chTitle||""}\n`}t+=`· "${h.text}"\n${h.memo?"  → "+h.memo.replace(/\n/g,"\n    ")+"\n":""}`}
-    try{await navigator.clipboard.writeText(t.trim());statusEl.textContent="복사했어요. 설교 원고나 메모장에 붙여 넣으세요."}catch(e){statusEl.textContent="복사하지 못했어요."}};
+    try{await navigator.clipboard.writeText(t.trim());statusEl.textContent="복사했어요. 원고나 메모장에 붙여 넣으세요."}catch(e){statusEl.textContent="복사하지 못했어요."}};
 }
 
 /* 읽는 자리 표시줄 · 키보드로 장 넘기기 */
@@ -343,18 +344,18 @@ async function renderSettings(){
     <div class="row"><button id="ex">책과 기록 모두 내보내기</button><button class="ghost" id="exs">기록만 내보내기 (책 본문 빼고)</button><label class="btn ghost" for="im">불러오기</label><input type="file" id="im" accept="application/json" hidden></div>
     <p class="note" id="bkN">${esc(est)}</p></div>
   <div class="cover"><h2 style="margin-top:0">앱처럼 설치하기</h2>
-    <p class="note">컴퓨터(크롬·엣지): 주소창 오른쪽의 설치 단추나 아래 단추를 누르면 바탕화면과 시작 메뉴에 생겨 따로 창으로 열려요. 아이폰: 사파리 공유 단추 → '홈 화면에 추가'. 안드로이드: 크롬 메뉴 → '앱 설치'.</p>
+    <p class="note">컴퓨터(크롬·엣지): 주소창 오른쪽의 설치 단추나 아래 단추를 누르면 바탕화면과 시작 메뉴에 생겨 따로 창으로 열려요. 아이폰: 사파리 공유 단추 → '홈 화면에 추가'. 안드로이드: 크롬 메뉴 → '앱 설치'를 누르세요.</p>
     <div class="row"><button id="inst">이 기기에 설치</button></div></div>`;
   const pv=view.querySelector("#pv");
   const drawP=()=>{const k=AIC.provider,v=P[k];
     pv.innerHTML=k==="manual"?`<p class="note">키가 없어도 돼요. 장마다 '요청문 복사'를 눌러 평소 쓰는 AI 앱에 붙여 넣고, 답을 다시 붙여 넣으면 돼요. 한꺼번에 만들 때는 몇 장씩 묶어 요청문을 만들어요.</p>`
     :`<div class="grid2"><label>API 키 <input type="password" id="key" value="${esc((AIC.keys||{})[k]||"")}" autocomplete="off" placeholder="키를 붙여 넣기"></label><label>모델 <input id="mdl" value="${esc((AIC.models||{})[k]||v.model)}"></label></div>
-      <p class="note">키는 <a href="${v.keyUrl}" target="_blank" rel="noopener">여기</a>에서 만들 수 있어요(사용한 만큼 그 회사에 요금이 나가요). 키는 이 기기에만 저장되고, 질문을 만들 때 이 기기에서 그 회사로만 보내져요. 모델 이름이 바뀌었으면 그 회사 안내의 새 이름을 넣으세요.</p>
+      <p class="note"><span>키 만드는 곳:</span> <a class="nt" href="${v.keyUrl}" target="_blank" rel="noopener">${v.keyUrl.replace("https://","")}</a></p><p class="note">사용한 만큼 그 회사에 요금이 나가요. 키는 이 기기에만 저장되고, 질문을 만들 때 이 기기에서 그 회사로만 보내져요. 모델 이름이 바뀌었으면 그 회사 안내의 새 이름을 넣으세요.</p>
       <div class="row"><button class="ghost" id="tst">연결 시험</button></div>`;
     const key=pv.querySelector("#key"),mdl=pv.querySelector("#mdl");
     if(key)key.onchange=()=>{AIC.keys={...AIC.keys,[k]:key.value.trim()};AI.saveAI(AIC);note("저장했어요.")};
     if(mdl)mdl.onchange=()=>{AIC.models={...AIC.models,[k]:mdl.value.trim()};AI.saveAI(AIC);note("저장했어요.")};
-    const t=pv.querySelector("#tst");if(t)t.onclick=async()=>{note("시험하는 중…");try{const r=await AI.ask(AIC,'{"ok":true} 라는 JSON만 그대로 답하세요.');note(/ok/.test(r)?"잘 연결됐어요.":"답은 왔지만 모양이 달라요: "+r.slice(0,80))}catch(e){note("연결하지 못했어요: "+(e.message||e))}};
+    const t=pv.querySelector("#tst");if(t)t.onclick=async()=>{note("시험하는 중…");try{const r=await AI.ask(AIC,'{"ok":true} 라는 JSON만 그대로 답하세요.');note(/ok/.test(r)?t("잘 연결됐어요."):t("답은 왔지만 모양이 달라요")+": "+r.slice(0,80))}catch(e){note(t("연결하지 못했어요")+": "+(e.message||e))}};
   };
   const note=t=>{view.querySelector("#aiN").textContent=t};
   view.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{AIC.provider=b.dataset.p;AI.saveAI(AIC);view.querySelectorAll("[data-p]").forEach(x=>x.setAttribute("aria-pressed",x===b));drawP()});
@@ -390,12 +391,14 @@ async function renderEdit(bid){
     for(const c of m.toc){const raw=await getRaw(`chapters/${bid}-${c.no}`);if(raw&&(raw.title!==c.title||raw.subtitle!==c.subtitle)){await putRaw(`chapters/${bid}-${c.no}`,{...raw,title:c.title,subtitle:c.subtitle});delete cache[`${bid}-${c.no}`]}}
     await putRaw("books/"+bid,m);statusEl.textContent="저장했어요.";location.hash="#b-"+bid};
   const rs=view.querySelector("#rs");if(rs)rs.onclick=async()=>{job.done=false;await putRaw("imports/"+bid,job);location.hash="#imp-"+bid};
-  view.querySelector("#del").onclick=async()=>{if(!confirm(`『${B.title}』과 그 기록을 모두 지울까요? 되돌릴 수 없어요.`))return;
+  view.querySelector("#del").onclick=async()=>{if(!confirm(t("『{b}』과 그 기록을 모두 지울까요? 되돌릴 수 없어요.",{b:B.title})))return;
     for(const p of [`chapters/${bid}-`,`study/${bid}-`,`notes/${bid}-`])await delPrefix(p);
     for(const h of HL.filter(h=>h.bid===bid))await delRaw("highlights/"+h.id);
     await delRaw("progress/"+bid);await delRaw("imports/"+bid);await delRaw("importfiles/"+bid);await delRaw("books/"+bid);location.hash="#lib"};
 }
 
+{const ls=document.getElementById("langSel");ls.innerHTML=Object.entries(LANGS).map(([k,v])=>`<option value="${k}" ${k===lang()?"selected":""}>${v}</option>`).join("");ls.onchange=()=>setLang(ls.value)}
+AI.setPromptLang(lang());startI18n();
 window.addEventListener("hashchange",()=>{if(skipRoute){skipRoute=false;return}route()});
 (async()=>{
   persist();

@@ -107,6 +107,8 @@ body.reading .brand,body.reading .crumb,body.reading .hdbtn{color:var(--rink)}
 @media(max-width:600px){.txt p{font-size:var(--rsize)}.page{padding:max(14px,calc(var(--rpy) * .6)) max(12px,calc(var(--rpx) * .45))}}
 .hdr{display:flex;gap:6px;align-items:center}
 .hdbtn{min-height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--ink);font:700 14px "Noto Sans KR",sans-serif}
+#langSel{padding:0 8px;cursor:pointer;max-width:7.5em}
+@media(max-width:600px){#langSel{max-width:4.6em}}
 .hdbtn.aa{font:700 17px "Gowun Batang",serif}
 .prog{position:fixed;left:0;top:0;height:3px;background:var(--ribbon);z-index:9;width:0;pointer-events:none}
 .sheet{position:fixed;z-index:20;right:16px;top:76px;width:min(380px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:auto;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px -18px rgba(0,0,0,.45);padding:16px 18px 18px}
@@ -169,7 +171,7 @@ ol.steps{padding-left:1.3em}ol.steps li{margin:6px 0}
 </style>
 </head>
 <body>
-<div class="prog" id="prog"></div><header><a class="brand" href="#lib">내 서재</a><span class="crumb" id="crumb"></span><span class="hdr"><a class="hdbtn btn" href="#hl" id="hlLink" style="background:transparent">형광펜·메모</a><a class="hdbtn btn" href="#set" style="background:transparent" aria-label="설정">설정</a><button class="hdbtn aa" id="aaBtn" aria-label="보기 설정 (글꼴·크기·색·여백)" title="보기 설정">가</button></span></header><div id="sheetHost"></div><div id="hlHost"></div>
+<div class="prog" id="prog"></div><header><a class="brand" href="#lib">내 서재</a><span class="crumb" id="crumb"></span><span class="hdr"><select id="langSel" class="hdbtn nt" aria-label="Language" title="Language"></select><a class="hdbtn btn" href="#hl" id="hlLink" style="background:transparent">형광펜·메모</a><a class="hdbtn btn" href="#set" style="background:transparent" aria-label="설정">설정</a><button class="hdbtn aa" id="aaBtn" aria-label="보기 설정 (글꼴·크기·색·여백)" title="보기 설정">가</button></span></header><div id="sheetHost"></div><div id="hlHost"></div>
 <main><p class="status" id="status">불러오는 중…</p><div id="view"></div></main>
 <script type="module" src="src/app.mjs"></script>
 </body>

@@ -8,17 +8,30 @@ export const PROVIDERS = {
   gemini: { name: 'Gemini (Google)', model: 'gemini-flash-latest', keyUrl: 'https://aistudio.google.com/apikey' },
 };
 const K = 'lib.ai';
+const OUTLANG = { ko: 'Korean', en: 'English', zh: 'Simplified Chinese', ja: 'Japanese' };
+let UIL = 'ko'; export function setPromptLang(l) { UIL = l; }
 export function loadAI() {
   let v = {}; try { v = JSON.parse(localStorage.getItem(K) || '{}'); } catch {}
-  return { provider: 'manual', keys: {}, models: {}, reader: '성경과 신학을 깊이 공부하려는 그리스도인', focus: '', ...v };
+  return { provider: 'manual', keys: {}, models: {}, reader: '', focus: '', ...v };
 }
 export function saveAI(v) { try { localStorage.setItem(K, JSON.stringify(v)); } catch {} }
 
 const SHAPE = `{"summary":"이 장의 핵심 3~4문장(저자의 주장 중심, 자기 말로)",
  "reflect":["생각할 질문 1","생각할 질문 2","생각할 질문 3"],
  "quiz":[{"q":"객관식 문제","options":["보기1","보기2","보기3","보기4"],"answer":0,"why":"정답 해설 1~2문장, 본문 근거"}]}`;
+const SHAPE_EN = `{"summary":"the chapter's core in 3-4 sentences, in your own words",
+ "reflect":["reflection question 1","reflection question 2","reflection question 3"],
+ "quiz":[{"q":"multiple-choice question","options":["option 1","option 2","option 3","option 4"],"answer":0,"why":"1-2 sentence explanation grounded in the text"}]}`;
+const shape = () => (UIL === 'ko' ? SHAPE : SHAPE_EN);
+const lab = (k) => (UIL === 'ko' ? { book: '[책]', ch: '[장]', body: '[본문]' } : { book: '[Book]', ch: '[Chapter]', body: '[Text]' })[k];
 function guide(cfg) {
-  return `당신은 책 읽기를 돕는 선생님입니다. 읽는 사람: ${cfg.reader || '그리스도인 독자'}.
+  if (UIL !== 'ko') return `You are a teacher helping someone read a book. The reader: ${cfg.reader || 'a Christian reader'}.
+The text was scanned from a paper book and read by OCR, so it may contain typos and broken Bible references. Understand it from the flow, but do not use any reference you are unsure of in the questions.
+Make 3 reflection questions: (1) what this chapter shows anew about God, (2) how it connects to the reader's life and ministry, (3) one for a small group to discuss together.${cfg.focus ? `\nAlso consider: ${cfg.focus}` : ''}
+Make 4 multiple-choice check questions with 4 options each. "answer" is the 0-based index of the correct option; vary its position. Test understanding of ideas rather than rote recall, with plausible wrong options.
+Use God-centred, grace-centred language and avoid self-help phrasing.
+Write every value (summary, questions, options, explanations) in ${OUTLANG[UIL] || 'English'}. Keep the JSON keys exactly as shown.`;
+  return `당신은 책 읽기를 돕는 선생님입니다. 읽는 사람: ${cfg.reader || '성경과 신학을 깊이 공부하려는 그리스도인'}.
 본문은 종이책을 스캔해 글자 인식(OCR)한 것이라 오탈자와 깨진 성경 장절 표기가 있을 수 있습니다. 흐름으로 바로잡아 이해하되, 확실하지 않은 장절은 문제에 쓰지 마세요.
 생각할 질문 3개는 (1) 이 장에서 하나님에 대해 새롭게 알게 되는 것 (2) 읽는 사람의 삶과 사역에 이어지는 것 (3) 소그룹에서 함께 나눌 질문으로 만드세요.${cfg.focus ? `\n특별히 고려할 점: ${cfg.focus}` : ''}
 확인 문제는 4개, 객관식 4지선다. answer는 정답 보기의 0부터 시작하는 번호이고 정답 위치를 골고루 섞으세요. 단순 암기보다 개념 이해를 묻고, 그럴듯한 오답을 만드세요.
@@ -26,21 +39,21 @@ function guide(cfg) {
 }
 export function promptOne(book, ch, cfg, again) {
   return `${guide(cfg)}
-반드시 아래 모양의 JSON 하나만 출력하세요. 다른 글은 쓰지 마세요.
-${SHAPE}
-${again ? '이전과 다른 새 질문과 문제로 만드세요.\n' : ''}
-[책] 『${book.title || ''}』 ${book.author || ''}
-[장] ${ch.no} ${ch.title || ''}${ch.subtitle ? ' — ' + ch.subtitle : ''}
-[본문]
+${UIL === 'ko' ? '반드시 아래 모양의 JSON 하나만 출력하세요. 다른 글은 쓰지 마세요.' : 'Output only one JSON object of the shape below, and nothing else.'}
+${shape()}
+${again ? (UIL === 'ko' ? '이전과 다른 새 질문과 문제로 만드세요.\n' : 'Make new questions, different from before.\n') : ''}
+${lab('book')} 『${book.title || ''}』 ${book.author || ''}
+${lab('ch')} ${ch.no} ${ch.title || ''}${ch.subtitle ? ' — ' + ch.subtitle : ''}
+${lab('body')}
 ${(ch.text || []).join('\n\n').slice(0, 24000)}`;
 }
 // 여러 장을 한 번에(복사해서 쓰기용): 답은 {"장번호": {...}} 모양
 export function promptMany(book, chs, cfg) {
   return `${guide(cfg)}
-아래 ${chs.length}개 장마다 따로 만드세요. 반드시 JSON 하나만 출력하세요. 다른 글은 쓰지 마세요. 모양:
-{"${chs[0].no}": ${SHAPE}, "${chs[1]?.no ?? chs[0].no + 1}": {…}, …}
-[책] 『${book.title || ''}』 ${book.author || ''}
-${chs.map((c) => `\n===== [장 ${c.no}] ${c.title || ''}${c.subtitle ? ' — ' + c.subtitle : ''}\n${(c.text || []).join('\n\n').slice(0, 9000)}`).join('\n')}`;
+${UIL === 'ko' ? `아래 ${chs.length}개 장마다 따로 만드세요. 반드시 JSON 하나만 출력하세요. 다른 글은 쓰지 마세요. 모양:` : `Make one set for each of the ${chs.length} chapters below. Output only one JSON object, nothing else. Shape:`}
+{"${chs[0].no}": ${shape()}, "${chs[1]?.no ?? chs[0].no + 1}": {…}, …}
+${lab('book')} 『${book.title || ''}』 ${book.author || ''}
+${chs.map((c) => `\n===== ${lab('ch').slice(0, -1)} ${c.no}] ${c.title || ''}${c.subtitle ? ' — ' + c.subtitle : ''}\n${(c.text || []).join('\n\n').slice(0, 9000)}`).join('\n')}`;
 }
 export function parseStudy(t) {
   const m = String(t || '').match(/\{[\s\S]*\}/);

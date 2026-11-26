@@ -7,8 +7,8 @@ const hgt = (l) => Math.max(1, l.h || (l.y1 - l.y0));
 // 성경 인용 출처 줄: "시편 119:34", "로마서 1:18-20, 새번역", "요한복음 3장"
 export const REF = /^[가-힣 ]{1,12}\s?\d[\dㄱ:,\-–~ ]*(편|장|절)?(,\s?[가-힣 ]{2,14})?[^가-힣]{0,3}$/;
 const NUMLINE = /^[\dIVXivxl|.\-–·\s]{1,6}$/;
-const CHAPTER_PAT = /^(제\s*\d{1,3}\s*[장과강부]|\d{1,3}\s*[장강과]|chapter\s+\d{1,3}|part\s+\d{1,2}|제\s*[일이삼사오육칠팔구십]+\s*[장부])\b/i;
-const PART_PAT = /^(제?\s*\d{1,2}\s*부|part\s+\d|[일이삼사오육칠팔구십]+\s*부)\b/i;
+const CHAPTER_PAT = /^(第\s*[\d一二三四五六七八九十百]+\s*[章节節回課课]|제\s*\d{1,3}\s*[장과강부]|\d{1,3}\s*[장강과]|chapter\s+\d{1,3}|part\s+\d{1,2}|제\s*[일이삼사오육칠팔구십]+\s*[장부])\b/i;
+const PART_PAT = /^(第\s*[\d一二三四五六七八九十]+\s*[部篇編编]|제?\s*\d{1,2}\s*부|part\s+\d|[일이삼사오육칠팔구십]+\s*부)\b/i;
 
 export function clean(s) { return String(s || '').replace(/ /g, ' ').replace(/\s{2,}/g, ' ').trim(); }
 
@@ -143,6 +143,10 @@ export function build(pages, roles, { joinScore } = {}) {
       if (s1 === 0 || s2 === 0) return a + b;
       return a + ' ' + b;
     }
+    // 중국어·일본어: 줄이 바뀌어도 띄우지 않는다
+    if (/[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef。、，」』]$/.test(a) && /^[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef「『]/.test(b)) return a + b;
+    // 영어: 줄 끝 붙임표로 나뉜 낱말은 잇는다
+    if (/[a-z]-$/.test(a) && /^[a-z]/.test(b)) return a.slice(0, -1) + b;
     if (/[(\[“"‘·\-]$/.test(a) || /^[).,;:”"’]/.test(b)) return a + b;
     return a + ' ' + b;
   }
@@ -152,7 +156,7 @@ export function build(pages, roles, { joinScore } = {}) {
       if (buf && l.indent) { paras.push(buf); buf = ''; }
       buf = join(buf, l.text);
       const next = c.lines[k + 1];
-      if (l.short && /[.!?”"’)\]…]$/.test(l.text) && (!next || !next.short || next.indent)) { paras.push(buf); buf = ''; }
+      if (l.short && /[.!?”"’)\]…。！？」』]$/.test(l.text) && (!next || !next.short || next.indent)) { paras.push(buf); buf = ''; }
     });
     if (buf) paras.push(buf);
     c.text = paras.filter((t) => t.trim());

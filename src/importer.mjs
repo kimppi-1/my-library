@@ -2,6 +2,8 @@
 import { list, putRaw, getRaw, delRaw, delPrefix } from './store.mjs';
 import { detect, build } from './chapters.mjs';
 import { buildFixes, applyFixes } from './glossary.mjs';
+import { lang as uiLang, t } from './i18n.mjs';
+const BOOKLANG = { kor: '한국어', eng: 'English', chi_sim: '中文(简体)', chi_tra: '中文(繁體)', jpn: '日本語' };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const slug = (t) => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -13,10 +15,10 @@ export async function renderAdd(view, ctx) {
   const jobs = (await list('imports')).map((d) => d.data).filter((j) => j && !j.done);
   view.innerHTML = `<h1>책 추가</h1>
   <p class="sub">가지고 있는 책의 PDF(스캔한 것도 됩니다)나 책장 사진을 넣으면, 이 기기 안에서 글자를 읽어 장별로 나눠 서재에 꽂아요. 파일은 어디로도 보내지 않아요.</p>
-  ${jobs.length ? `<div class="cover"><h2 style="margin-top:0">읽다 만 책</h2>${jobs.map((j) => `<div class="row" style="margin:6px 0"><b>${esc(j.title)}</b><span class="note">${j.pages.filter(Boolean).length}/${j.total}쪽</span><a class="btn ghost" href="#imp-${esc(j.id)}">${j.pages.filter(Boolean).length >= j.total ? '장 나누기로' : '이어서 읽기'}</a><button class="ghost" data-del="${esc(j.id)}">지우기</button></div>`).join('')}</div>` : ''}
+  ${jobs.length ? `<div class="cover"><h2 style="margin-top:0">읽다 만 책</h2>${jobs.map((j) => `<div class="row" style="margin:6px 0"><b class="nt">${esc(j.title)}</b><span class="note">${j.pages.filter(Boolean).length}/${j.total}쪽</span><a class="btn ghost" href="#imp-${esc(j.id)}">${j.pages.filter(Boolean).length >= j.total ? '장 나누기로' : '이어서 읽기'}</a><button class="ghost" data-del="${esc(j.id)}">지우기</button></div>`).join('')}</div>` : ''}
   <div class="cover">
     <label class="lab" for="f">1. 책 파일 고르기 <span class="note">PDF 여러 개(앞권·뒷권)나 사진 여러 장도 한 권으로 묶어요. 이름 순서대로 이어 붙여요.</span></label>
-    <div class="drop" id="drop"><input type="file" id="f" accept="application/pdf,image/*" multiple><p>여기에 끌어다 놓거나 눌러서 고르세요</p><p class="note" id="fl"></p></div>
+    <div class="drop" id="drop"><input type="file" id="f" accept="application/pdf,image/*" multiple><p>여기에 끌어다 놓거나 눌러서 고르세요</p><p class="note nt" id="fl"></p></div>
     <div class="grid2">
       <label>책 제목<input id="t" placeholder="예: 신학 한걸음"></label>
       <label>지은이<input id="a" placeholder="예: J. I. 패커"></label>
@@ -24,7 +26,8 @@ export async function renderAdd(view, ctx) {
       <label>표지 사진 (선택)<input type="file" id="cv" accept="image/*"></label>
     </div>
     <details style="margin-top:10px"><summary>읽기 설정</summary>
-      <label class="chk"><input type="checkbox" id="sp" checked> 틀린 글자 바로잡기 (Kiwi 언어 모형 · 처음 한 번 약 28MB 받음)</label>
+      <label class="lab" style="margin-top:8px">책의 언어 <select id="bl" class="chip" style="max-width:16em">${Object.entries(BOOKLANG).map(([k, v]) => `<option value="${k}" ${k === ({ ko: 'kor', en: 'eng', zh: 'chi_sim', ja: 'jpn' }[uiLang()] || 'kor') ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="chk"><input type="checkbox" id="sp" checked> 틀린 글자 바로잡기 (한국어 책 · Kiwi 언어 모형 · 처음 한 번 약 28MB 받음)</label>
       <label class="chk"><input type="checkbox" id="hq"> 더 꼼꼼히 읽기 (느리지만 작은 글씨에 좋음)</label>
     </details>
     <div class="row" style="margin-top:14px"><button id="go" disabled>읽기 시작</button><span class="note">300쪽 책이면 컴퓨터에서 30분~1시간쯤 걸려요. 그동안 이 화면을 열어 두세요(다른 탭은 써도 돼요).</span></div>
@@ -50,7 +53,7 @@ export async function renderAdd(view, ctx) {
     if (cf) cover = await shrink(cf, 480);
     const [publisher, year] = view.querySelector('#p').value.split(/[,·]/).map((x) => x.trim());
     const job = { id, title: view.querySelector('#t').value.trim() || '제목 없는 책', author: view.querySelector('#a').value.trim(), publisher: publisher || '', year: year || '', cover,
-      spell: view.querySelector('#sp').checked, dpi: view.querySelector('#hq').checked ? 360 : 300, files: files.map((x) => x.name), total: 0, pages: [], at: new Date().toISOString() };
+      lang: view.querySelector('#bl').value, spell: view.querySelector('#sp').checked && view.querySelector('#bl').value === 'kor', dpi: view.querySelector('#hq').checked ? 360 : 300, files: files.map((x) => x.name), total: 0, pages: [], at: new Date().toISOString() };
     // 원본 파일도 이 기기 안에 잠시 둔다(이어서 읽기용). 다 꽂으면 지운다
     const blobs = []; let total = 0;
     const O = await ocr();
@@ -82,7 +85,7 @@ export async function renderImport(view, ctx, id) {
 }
 
 async function renderReading(view, ctx, job) {
-  view.innerHTML = `<h1>${esc(job.title)}</h1><p class="sub">글자를 읽고 있어요. 이 화면을 닫아도 읽은 쪽은 저장돼 있어서, 다시 열면 이어서 읽어요.</p>
+  view.innerHTML = `<h1 class="nt">${esc(job.title)}</h1><p class="sub">글자를 읽고 있어요. 이 화면을 닫아도 읽은 쪽은 저장돼 있어서, 다시 열면 이어서 읽어요.</p>
   <div class="cover"><div class="bar"><i id="pb" style="width:0"></i></div><p class="note" id="pn"></p><pre class="peek" id="peek"></pre>
   <div class="row"><button class="ghost" id="stop">잠시 멈추기</button></div></div>`;
   const pb = view.querySelector('#pb'), pn = view.querySelector('#pn'), peek = view.querySelector('#peek');
@@ -116,9 +119,9 @@ async function renderReading(view, ctx, job) {
       try {
         if (b.type === 'pdf') {
           const doc = await getDoc(fi); const page = await doc.getPage(p);
-          pg = await O.textLayer(page) || await O.ocrPage(page, { dpi: job.dpi, slot });
+          pg = await O.textLayer(page) || await O.ocrPage(page, { dpi: job.dpi, slot, lang: job.lang || 'kor' });
           page.cleanup();
-        } else pg = await O.ocrImage(new Blob([b.data], { type: b.type }), { slot });
+        } else pg = await O.ocrImage(new Blob([b.data], { type: b.type }), { slot, lang: job.lang || 'kor' });
         if (fixer && !pg.digital) pg.spell = O.spellLines(fixer, pg.lines);
       } catch (e) {
         console.error(e); fails++;
@@ -136,7 +139,7 @@ async function renderReading(view, ctx, job) {
   await Promise.all(Array.from({ length: slots }, (_, k) => lane(k)));
   await saving; running = null;
   for (const k in docs) (await docs[k]).destroy();
-  if (failed) { await O.terminate(); pn.textContent = `글자를 읽지 못해 멈췄어요: ${lastErr}. 인터넷 연결을 확인하고 이 화면을 다시 열면 이어서 읽어요.`; view.querySelector('#stop').outerHTML = `<button onclick="location.reload()">다시 시도</button>`; return; }
+  if (failed) { await O.terminate(); pn.textContent = t('글자를 읽지 못해 멈췄어요') + ': ' + lastErr + '. ' + t('인터넷 연결을 확인하고 이 화면을 다시 열면 이어서 읽어요.'); view.querySelector('#stop').outerHTML = `<button onclick="location.reload()">다시 시도</button>`; return; }
   if (job.pages.filter(Boolean).length >= job.total) { await O.terminate(); renderSplit(view, ctx, job); }
   else pn.textContent = `멈췄어요. ${job.pages.filter(Boolean).length}/${job.total}쪽까지 읽었어요. 이 화면을 다시 열면 이어서 읽어요.`, view.querySelector('#stop').outerHTML = `<a class="btn" href="#imp-${esc(job.id)}" onclick="location.reload()">이어서 읽기</a>`;
 }
@@ -150,14 +153,14 @@ async function renderSplit(view, ctx, job) {
   let onlyStarts = false;
   const draw = () => {
     const nCh = roles.filter((r) => r.role === 'chapter').length;
-    view.innerHTML = `<h1>장 나누기</h1><p class="sub">『${esc(job.title)}』 ${job.total}쪽을 다 읽었어요. 장이 시작하는 쪽을 맞게 짚었는지 보고, 제목을 고친 뒤 서재에 꽂으세요.</p>
+    view.innerHTML = `<h1>장 나누기</h1><p class="sub">『<span class="nt">${esc(job.title)}</span>』 ${job.total}쪽을 다 읽었어요. 장이 시작하는 쪽을 맞게 짚었는지 보고, 제목을 고친 뒤 서재에 꽂으세요.</p>
     <div class="cover"><p class="note">지금 <b>${nCh}개 장</b>. 큰 글씨 제목이 있는 쪽을 장 시작으로 짐작했어요. 차례·찾아보기·주처럼 읽지 않을 쪽은 '빼기'로 두세요.</p>
     <div class="row"><button class="ghost" id="only">${onlyStarts ? '모든 쪽 보기' : '장 시작 쪽만 보기'}</button><button class="ghost" id="redo">처음 짐작으로 되돌리기</button><button id="save">서재에 꽂기</button></div></div>
     <table class="split"><thead><tr><th>쪽</th><th>무엇</th><th>제목 · 부제</th><th>첫 줄</th></tr></thead><tbody>
     ${roles.map((r, i) => (onlyStarts && r.role === 'body') ? '' : `<tr class="r-${r.role}" data-i="${i}"><td>${i + 1}</td>
       <td><select data-k="role" aria-label="${i + 1}쪽은">${[['body', '본문'], ['chapter', '새 장 시작'], ['part', '부 표지'], ['skip', '빼기']].map(([v, l]) => `<option value="${v}" ${r.role === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
       <td>${r.role === 'chapter' || r.role === 'part' ? `<input data-k="title" value="${esc(r.title)}" aria-label="제목" placeholder="제목">${r.role === 'chapter' ? `<input data-k="subtitle" value="${esc(r.subtitle)}" aria-label="부제" placeholder="부제 (없으면 비워 두기)">` : ''}` : ''}</td>
-      <td class="note">${esc(first(i))}</td></tr>`).join('')}</tbody></table>`;
+      <td class="note nt">${esc(first(i))}</td></tr>`).join('')}</tbody></table>`;
     view.querySelector('#only').onclick = () => { onlyStarts = !onlyStarts; draw(); };
     view.querySelector('#redo').onclick = async () => { if (!confirm('고친 것을 버리고 처음 짐작으로 되돌릴까요?')) return; delete job.roles; renderSplit(view, ctx, job); };
     view.querySelectorAll('tr[data-i]').forEach((tr) => {
@@ -183,7 +186,7 @@ async function finish(view, ctx, job, pages) {
   if (!chs.length) { btn.disabled = false; btn.textContent = '서재에 꽂기'; alert('본문으로 쓸 쪽이 없어요. 쪽마다 \'본문\'이나 \'새 장 시작\'을 골라 주세요.'); return; }
   // 중요한 낱말 지키기
   const extra = (ctx.settings().extraWords || '').split(/[\s,]+/).filter(Boolean);
-  const rep = buildFixes(chs.flatMap((c) => [...c.text, c.epigraph, c.title, c.subtitle]), extra);
+  const rep = (job.lang || 'kor') !== 'kor' ? {} : buildFixes(chs.flatMap((c) => [...c.text, c.epigraph, c.title, c.subtitle]), extra);
   for (const c of chs) { c.text = c.text.map((t) => applyFixes(t, rep)); c.epigraph = applyFixes(c.epigraph, rep); c.title = applyFixes(c.title, rep); c.subtitle = applyFixes(c.subtitle, rep); }
   const bid = job.id;
   const books = (await list('books')).map((d) => d.data);
