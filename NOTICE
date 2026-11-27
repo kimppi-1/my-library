@@ -18,3 +18,7 @@ Kiwi 한국어 형태소 분석기 (틀린 글자 바로잡기)
 
 Fonts are loaded from Google Fonts (Gowun Batang, Gowun Dodum, Nanum Myeongjo,
 Nanum Gothic, Noto Serif KR, Noto Sans KR), SIL Open Font License 1.1.
+
+Bible chapter/verse counts (src/bible-meta.mjs)
+  Counted from the public-domain Korean Revised Version (개역한글) text in
+  https://github.com/thiagobodruk/bible ; only book names and verse counts are included, no Bible text.

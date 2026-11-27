@@ -101,3 +101,53 @@ export async function ask(cfg, prompt) {
   }
   throw new Error('AI를 골라 주세요.');
 }
+
+// AI 정밀 교정: 쪽 사진 + 글자 인식 결과(줄 번호)를 함께 보내, 사진에 찍힌 그대로 줄마다 고친 글을 받는다.
+// 저자의 글을 다듬지 않도록 '보이는 그대로'만 요구하고, 받은 줄도 원래 줄과 너무 다르면 쓰지 않는다(지어내기 방지).
+export const PROOF_MODEL = { claude: 'claude-haiku-5-5', openai: 'gpt-5.4-mini', gemini: 'gemini-flash-latest' };
+export async function proofPage(cfg, jpegB64, lines, bookLang = 'kor') {
+  const p = cfg.provider, key = (cfg.keys || {})[p], model = PROOF_MODEL[p];
+  if (!key || !model) throw Object.assign(new Error('AI 설정에서 API 키를 넣어 주세요.'), { code: 'nokey' });
+  const prompt = `This is a scanned page of a printed book (language: ${bookLang}) and an OCR transcription of it, one numbered line per printed line.
+Correct every line so that it is EXACTLY what is printed on the page image: fix misread letters, digits, Bible references (book abbreviations, chapter:verse, hyphens), quotation marks and punctuation.
+Rules: copy the printed text faithfully. Do NOT paraphrase, modernize, translate, or fix the author's own spelling or grammar. Keep the spacing between words as printed. Do not merge or split lines.
+If a numbered line is noise that is not text on the page, return "" for it.
+Return only JSON: {"lines": [ ...exactly ${lines.length} strings, in the same order... ]}
+
+${lines.map((l, i) => `${i + 1}\t${l}`).join('\n')}`;
+  let r, j, out;
+  if (p === 'claude') {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model, max_tokens: 8000, messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: jpegB64 } }, { type: 'text', text: prompt }] }] }),
+    });
+    j = await r.json(); if (!r.ok) throw new Error(j?.error?.message || r.status);
+    out = (j.content || []).map((c) => c.text || '').join('');
+  } else if (p === 'openai') {
+    r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + jpegB64, detail: 'high' } }, { type: 'text', text: prompt }] }], response_format: { type: 'json_object' } }),
+    });
+    j = await r.json(); if (!r.ok) throw new Error(j?.error?.message || r.status);
+    out = j.choices?.[0]?.message?.content || '';
+  } else if (p === 'gemini') {
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: jpegB64 } }, { text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0 } }),
+    });
+    j = await r.json(); if (!r.ok) throw new Error(j?.error?.message || r.status);
+    out = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('');
+  } else throw Object.assign(new Error('manual'), { code: 'manual' });
+  const m = out.match(/\{[\s\S]*\}/); if (!m) throw new Error('AI 답을 읽지 못했어요');
+  const arr = JSON.parse(m[0]).lines;
+  if (!Array.isArray(arr) || arr.length !== lines.length) throw new Error('AI가 줄 수를 맞추지 못했어요');
+  return arr.map((x) => String(x ?? ''));
+}
+// 두 줄이 얼마나 닮았는지(0~1): 띄어쓰기를 뺀 글자 편집 거리
+export function likeness(a, b) {
+  a = [...a.replace(/\s/g, '')]; b = [...b.replace(/\s/g, '')];
+  if (!a.length && !b.length) return 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) { const cur = [i]; for (let k = 1; k <= b.length; k++) cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1)); prev = cur; }
+  return 1 - prev[b.length] / Math.max(a.length, b.length);
+}

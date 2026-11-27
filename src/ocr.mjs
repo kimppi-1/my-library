@@ -62,7 +62,13 @@ async function readLines(lang, psm, img, slot = 0) {
   for (const b of r.data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) {
     const words = (l.words || []).filter((x) => x.text && x.text.trim()).map((x) => ({ text: x.text, conf: x.confidence, x0: x.bbox.x0, y0: x.bbox.y0, x1: x.bbox.x1, y1: x.bbox.y1 }));
     if (!words.length) continue;
-    out.push({ text: String(l.text || '').replace(/\s+/g, ' ').trim(), words, conf: l.confidence, x0: l.bbox.x0, y0: l.bbox.y0, x1: l.bbox.x1, y1: l.bbox.y1, h: med(words.map((x) => x.y1 - x.y0)) });
+    let text = String(l.text || '').replace(/\s+/g, ' ').trim();
+    // 자간이 넓은 제목(하 나 님 은): 글자 사이 틈 크기로 띄어쓰기를 다시 정한다
+    if (words.length >= 4 && words.filter((x) => [...x.text].length === 1).length >= words.length * 0.6) {
+      const ws = [...words].sort((a, b) => a.x0 - b.x0), gaps = ws.slice(1).map((x, i) => x.x0 - ws[i].x1), g = med(gaps);
+      text = ws[0].text + ws.slice(1).map((x, i) => (gaps[i] > Math.max(g * 1.6, g + 8) ? ' ' : '') + x.text).join('');
+    }
+    out.push({ text, words, conf: l.confidence, x0: l.bbox.x0, y0: l.bbox.y0, x1: l.bbox.x1, y1: l.bbox.y1, h: med(words.map((x) => x.y1 - x.y0)) });
   }
   return out;
 }
@@ -109,13 +115,61 @@ async function reread(canvas, lines, log, slot = 0, lang = 'kor') {
     l.text = line;
   }
 }
+// 빠진 줄 되살리기: 한 쪽 전체 읽기(psm 6)는 회색 부제목·큰 제목·작은 글씨 줄을 놓치거나 엉망으로 읽곤 한다.
+// 쪽의 잉크 띠(가로 줄)를 찾아, 읽힌 줄이 없거나 자신 없게 읽힌 띠만 대비를 늘리고 크기를 맞춰 한 줄 모드(psm 7)로 다시 읽는다.
+// 시험 4쪽에서 장 제목·부제목이 통째로 살아나 그 쪽 오타가 6.4% → 1.6%로 줄었다.
+async function recover(canvas, lines, slot = 0, lang = 'kor') {
+  if (!lines.length) return 0;
+  const W = canvas.width, H = canvas.height;
+  const x0 = Math.max(0, Math.min(...lines.map((l) => l.x0)) - 20), x1 = Math.min(W, Math.max(...lines.map((l) => l.x1)) + 20);
+  const px = canvas.getContext('2d').getImageData(0, 0, W, H).data;
+  const gray = (x, y) => { const i = (y * W + x) * 4; return (px[i] * 3 + px[i + 1] * 6 + px[i + 2]) / 10; };
+  // 잉크 띠
+  const on = new Uint8Array(H), need = Math.max(2, (x1 - x0) * 0.004);
+  for (let y = 0; y < H; y++) { let n = 0; for (let x = x0; x < x1; x += 1) if (gray(x, y) < 200) n++; on[y] = n > need ? 1 : 0; }
+  let bands = [];
+  for (let y = 0; y < H;) { if (!on[y]) { y++; continue; } let j = y; while (j < H && on[j]) j++; if (bands.length && y - bands[bands.length - 1][1] < 5) bands[bands.length - 1][1] = j; else bands.push([y, j]); y = j; }
+  bands = bands.filter(([a, b]) => b - a >= 10 && b - a < H * 0.2);
+  // 대비 늘리기 기준: 종이(밝은 쪽 60%)와 가장 진한 잉크
+  const sample = []; for (let i = 0; i < 4000; i++) sample.push(gray(x0 + Math.floor(Math.random() * (x1 - x0)), Math.floor(Math.random() * H)));
+  sample.sort((a, b) => a - b); const lo = sample[Math.floor(sample.length * 0.005)], hi = Math.max(lo + 1, sample[Math.floor(sample.length * 0.6)]);
+  let added = 0;
+  for (const [y0, y1] of bands) {
+    const h = y1 - y0;
+    const cov = lines.filter((l) => Math.min(l.y1, y1) - Math.max(l.y0, y0) > 0.5 * Math.min(h, l.y1 - l.y0));
+    const lc = (l) => (l.words.length ? l.words.reduce((a, x) => a + x.conf, 0) / l.words.length : 0);
+    if (cov.length && Math.min(...cov.map(lc)) >= 55) continue;
+    const pad = Math.max(6, Math.floor(h / 3)), cy0 = Math.max(0, y0 - pad), cy1 = Math.min(H, y1 + pad);
+    const s = h > 70 ? 48 / h : 1, cw = Math.max(1, Math.round((x1 - x0) * s)), ch = Math.max(1, Math.round((cy1 - cy0) * s));
+    const c = canvasOf(cw, ch), g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(canvas, x0, cy0, x1 - x0, cy1 - cy0, 0, 0, cw, ch);
+    const id = g.getImageData(0, 0, cw, ch), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { const v = Math.max(0, Math.min(255, ((d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10 - lo) / (hi - lo) * 255)); d[i] = d[i + 1] = d[i + 2] = v; }
+    g.putImageData(id, 0, 0);
+    const R = await readLines(lang, '7', await blobOf(c), slot);
+    if (!R.length) continue;
+    const text = R.map((r) => r.text).join(' '), ws = R.flatMap((r) => r.words), conf = ws.reduce((a, x) => a + x.conf, 0) / ws.length;
+    const letters = (text.match(lang === 'kor' ? /[가-힣]/g : /[\p{L}]/gu) || []).length;
+    if (conf < 60 || letters < 2) continue;
+    // 원래 쪽 좌표로 되돌린 낱말들
+    const back = ws.map((x) => ({ ...x, x0: x0 + x.x0 / s, x1: x0 + x.x1 / s, y0: cy0 + x.y0 / s, y1: cy0 + x.y1 / s }));
+    const line = { text, words: back, conf, x0: Math.min(...back.map((x) => x.x0)), x1: Math.max(...back.map((x) => x.x1)), y0: Math.min(...back.map((x) => x.y0)), y1: Math.max(...back.map((x) => x.y1)) };
+    line.h = med(back.map((x) => x.y1 - x.y0));
+    if (cov.length) {
+      if (conf <= Math.max(...cov.map(lc)) + 10) continue;
+      for (const l of cov) lines.splice(lines.indexOf(l), 1);
+    }
+    lines.push(line); added++;
+  }
+  lines.sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0);
+  return added;
+}
 // 스캔한 쪽 하나 읽기
-export async function ocrPage(page, { dpi = 300, onStep, slot = 0, lang = 'kor' } = {}) {
+export async function ocrPage(page, { dpi = 300, onStep, slot = 0, lang = 'kor', proof } = {}) {
   const vp = page.getViewport({ scale: dpi / 72 });
   const c = canvasOf(Math.round(vp.width), Math.round(vp.height));
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
   await page.render({ canvasContext: g, viewport: vp }).promise;
-  return ocrCanvas(c, { onStep, slot, lang });
+  return ocrCanvas(c, { onStep, slot, lang, proof });
 }
 // 사진(jpg·png) 한 장 = 한 쪽. 너무 크면 긴 변 3500px로 줄인다
 export async function ocrImage(file, opts = {}) {
@@ -123,7 +177,7 @@ export async function ocrImage(file, opts = {}) {
   const c = canvasOf(Math.round(bm.width * k), Math.round(bm.height * k)); const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0, c.width, c.height);
   return ocrCanvas(c, opts);
 }
-export async function ocrCanvas(c, { onStep, slot = 0, lang = 'kor' } = {}) {
+export async function ocrCanvas(c, { onStep, slot = 0, lang = 'kor', proof } = {}) {
   let lines = await readLines(lang, '6', await blobOf(c), slot);
   const conf = (L) => { const w = L.flatMap((l) => l.words); return w.length ? w.reduce((a, x) => a + x.conf, 0) / w.length : 0; };
   // 거꾸로 스캔된 쪽: 믿음직하지 않으면 뒤집어 다시 읽어 더 나은 쪽을 쓴다
@@ -133,10 +187,22 @@ export async function ocrCanvas(c, { onStep, slot = 0, lang = 'kor' } = {}) {
     if (conf(L2) > conf(lines) + 8) { lines = L2; c = r; }
   }
   const log = [];
+  onStep?.('recover');
+  try { await recover(c, lines, slot, lang); } catch (e) { console.warn('recover', e); }
   // 장절 다시 읽기는 모든 언어, 영어 조각 다시 읽기는 한국어 책에서만(reread 안에서 한글 기준으로 판단)
   onStep?.('reread');
   await reread(c, lines, log, slot, lang);
-  return { w: c.width, h: c.height, lines: lines.map(({ text, x0, y0, x1, y1, h }) => ({ text, x0, y0, x1, y1, h })), fixes: log };
+  // AI 정밀 교정(고른 경우): 쪽 사진을 긴 변 1600px JPEG로 줄여 보낸다
+  let proofed = false;
+  if (proof && lines.length) {
+    const k = Math.min(1, 1600 / Math.max(c.width, c.height)), s = canvasOf(Math.round(c.width * k), Math.round(c.height * k));
+    const sg = s.getContext('2d'); sg.imageSmoothingQuality = 'high'; sg.drawImage(c, 0, 0, s.width, s.height);
+    const blob = s.convertToBlob ? await s.convertToBlob({ type: 'image/jpeg', quality: 0.85 }) : await new Promise((r) => s.toBlob(r, 'image/jpeg', 0.85));
+    const b64 = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
+    onStep?.('proof');
+    proofed = await proof(b64, lines);
+  }
+  return { proofed, w: c.width, h: c.height, lines: lines.filter((l) => l.text && l.text.trim()).map(({ text, x0, y0, x1, y1, h }) => ({ text, x0, y0, x1, y1, h })), fixes: log };
 }
 
 // Kiwi(맞춤법) — 처음 한 번 약 28MB를 받는다

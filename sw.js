@@ -1,7 +1,7 @@
 // 한 번 열면 인터넷 없이도 열리도록 앱 파일을 저장해 둔다.
 // 앱 파일은 '저장본을 먼저 보여 주고 뒤에서 새로 받기', 큰 자료(글자 인식·맞춤법 모형)는 '한 번 받으면 저장본만'.
-const V = 'my-library-v2';
-const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'src/app.mjs', 'src/store.mjs', 'src/ai.mjs', 'src/importer.mjs', 'src/chapters.mjs', 'src/glossary.mjs', 'src/ocr.mjs', 'src/ko-fix.mjs', 'src/i18n.mjs', 'src/i18n-dict.mjs', 'vendor/pdfjs/pdf.min.mjs', 'vendor/pdfjs/pdf.worker.min.mjs', 'icons/icon-192.png'];
+const V = 'my-library-v3';
+const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'src/app.mjs', 'src/store.mjs', 'src/ai.mjs', 'src/importer.mjs', 'src/chapters.mjs', 'src/glossary.mjs', 'src/refs.mjs', 'src/bible-meta.mjs', 'src/ocr.mjs', 'src/ko-fix.mjs', 'src/i18n.mjs', 'src/i18n-dict.mjs', 'vendor/pdfjs/pdf.min.mjs', 'vendor/pdfjs/pdf.worker.min.mjs', 'icons/icon-192.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('my-library-') && k !== V && k !== 'my-library-big').map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 const BIG = (u) => /\/vendor\/kiwi\/|cdn\.jsdelivr\.net\/npm\/(tesseract|kiwi-nlp|@tesseract)|tessdata|\.traineddata/.test(u);

@@ -220,7 +220,7 @@ export const DICT = {
 "틀린 글자 바로잡기 (한국어 책 · Kiwi 언어 모형 · 처음 한 번 약 {0}MB 받음": "Fix misread letters (Korean books · Kiwi language model · about {0} MB downloaded once",
 "더 꼼꼼히 읽기 (느리지만 작은 글씨에 좋음": "Read more carefully (slower, better for small print",
 "읽기 시작": "Start reading",
-"{0}쪽 책이면 컴퓨터에서 {1}분~{2}시간쯤 걸려요. 그동안 이 화면을 열어 두세요(다른 탭은 써도 돼요": "A {0}-page book takes about {1} minutes to {2} hour on a computer. Keep this screen open meanwhile (you can use other tabs",
+"{0}쪽 책이면 컴퓨터에서 {1}분~{2}시간쯤 걸려요. 그동안 이 화면을 열어 두세요(다른 탭은 써도 돼요": "A {0}-page book takes about {1} minutes to {2} hours on a computer. Keep this screen open meanwhile (you can use other tabs",
 "글자를 읽고 있어요. 이 화면을 닫아도 읽은 쪽은 저장돼 있어서, 다시 열면 이어서 읽어요": "Reading the text. Pages already read are saved, so if you close this screen it continues when you reopen it",
 "{0} / {1}쪽 읽음": "{0} / {1} pages read",
 "{0} / {1}쪽 읽음 · 남은 시간 약 {2}분": "{0} / {1} pages read · about {2} min left",
@@ -258,7 +258,12 @@ export const DICT = {
 "낱말 잇기 모형 불러오는 중": "Loading the word-joining model",
 "본문으로 쓸 쪽이 없어요. 쪽마다 '본문'이나 '새 장 시작'을 골라 주세요": "There are no pages to use as text. Choose 'Body text' or 'New chapter' for the pages",
 "이 작업을 찾을 수 없어요": "This job was not found",
-"책 추가로": "To Add a book"
+"책 추가로": "To Add a book",
+"AI로 한 번 더 바로잡기": "Proofread once more with AI",
+"쪽 사진을 AI가 직접 보고 오타를 고쳐요. 가장 정확하지만 쪽마다 AI 요금이 들어요(Gemini가 가장 저렴해요": "the AI looks at each page image and fixes typos. Most accurate, but each page costs AI fees (Gemini is cheapest",
+"에서 Claude·ChatGPT·Gemini 키를 넣으면 쓸 수 있어요. 쪽 사진을 AI가 직접 보고 오타를 고쳐 가장 정확해요": " — add a Claude, ChatGPT or Gemini key there to use it. The AI looks at each page image and fixes typos, which is the most accurate",
+"AI로 한 번 더 바로잡는 중이에요": "Also proofreading with AI",
+"AI 바로잡기가 계속 실패해서 껐어요(글자 인식은 계속해요): {e}": "AI proofreading kept failing, so it was turned off (text recognition continues): {e}"
 },
 "zh": {
 "내 서재": "我的书房",
@@ -518,7 +523,12 @@ export const DICT = {
 "낱말 잇기 모형 불러오는 중": "正在加载词语连接模型",
 "본문으로 쓸 쪽이 없어요. 쪽마다 '본문'이나 '새 장 시작'을 골라 주세요": "没有可用作正文的页面。请为页面选择“正文”或“新章节开始”",
 "이 작업을 찾을 수 없어요": "找不到这个任务",
-"책 추가로": "前往添加书"
+"책 추가로": "前往添加书",
+"AI로 한 번 더 바로잡기": "再用 AI 校对一遍",
+"쪽 사진을 AI가 직접 보고 오타를 고쳐요. 가장 정확하지만 쪽마다 AI 요금이 들어요(Gemini가 가장 저렴해요": "AI 直接查看每页图片并改正错字。最准确，但每页都会产生 AI 费用（Gemini 最便宜",
+"에서 Claude·ChatGPT·Gemini 키를 넣으면 쓸 수 있어요. 쪽 사진을 AI가 직접 보고 오타를 고쳐 가장 정확해요": " 中填入 Claude、ChatGPT 或 Gemini 的密钥即可使用。AI 直接查看页面图片改正错字，最准确",
+"AI로 한 번 더 바로잡는 중이에요": "同时在用 AI 校对",
+"AI 바로잡기가 계속 실패해서 껐어요(글자 인식은 계속해요): {e}": "AI 校对一直失败，已关闭（文字识别继续进行）：{e}"
 },
 "ja": {
 "내 서재": "マイ書斎",
@@ -778,6 +788,11 @@ export const DICT = {
 "낱말 잇기 모형 불러오는 중": "単語つなぎモデルを読み込み中",
 "본문으로 쓸 쪽이 없어요. 쪽마다 '본문'이나 '새 장 시작'을 골라 주세요": "本文にするページがありません。ページごとに「本文」か「新しい章」を選んでください",
 "이 작업을 찾을 수 없어요": "この作業が見つかりません",
-"책 추가로": "本を追加へ"
+"책 추가로": "本を追加へ",
+"AI로 한 번 더 바로잡기": "AIでもう一度校正",
+"쪽 사진을 AI가 직접 보고 오타를 고쳐요. 가장 정확하지만 쪽마다 AI 요금이 들어요(Gemini가 가장 저렴해요": "AIがページの画像を見て誤字を直します。最も正確ですが、ページごとにAI料金がかかります（Geminiが最も安価です",
+"에서 Claude·ChatGPT·Gemini 키를 넣으면 쓸 수 있어요. 쪽 사진을 AI가 직접 보고 오타를 고쳐 가장 정확해요": "でClaude・ChatGPT・Geminiのキーを入れると使えます。AIがページの画像を見て誤字を直すので最も正確です",
+"AI로 한 번 더 바로잡는 중이에요": "AIでも校正しています",
+"AI 바로잡기가 계속 실패해서 껐어요(글자 인식은 계속해요): {e}": "AI校正が失敗し続けたので止めました（文字認識は続けます）：{e}"
 }
 };

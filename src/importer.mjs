@@ -2,6 +2,8 @@
 import { list, putRaw, getRaw, delRaw, delPrefix } from './store.mjs';
 import { detect, build } from './chapters.mjs';
 import { buildFixes, applyFixes } from './glossary.mjs';
+import { fixRefs, bookFreq } from './refs.mjs';
+import { loadAI, proofPage, likeness, PROVIDERS } from './ai.mjs';
 import { lang as uiLang, t } from './i18n.mjs';
 const BOOKLANG = { kor: '한국어', eng: 'English', chi_sim: '中文(简体)', chi_tra: '中文(繁體)', jpn: '日本語' };
 
@@ -10,6 +12,7 @@ const slug = (t) => 'b' + Date.now().toString(36) + Math.random().toString(36).s
 let OCR = null; const ocr = async () => (OCR = OCR || await import('./ocr.mjs'));
 let running = null;   // 지금 읽고 있는 작업 { id, stop }
 
+function aiReady() { const c = loadAI(); return c.provider !== 'manual' && !!(c.keys || {})[c.provider]; }
 export async function renderAdd(view, ctx) {
   ctx.crumb('책 추가');
   const jobs = (await list('imports')).map((d) => d.data).filter((j) => j && !j.done);
@@ -29,8 +32,10 @@ export async function renderAdd(view, ctx) {
       <label class="lab" style="margin-top:8px">책의 언어 <select id="bl" class="chip" style="max-width:16em">${Object.entries(BOOKLANG).map(([k, v]) => `<option value="${k}" ${k === ({ ko: 'kor', en: 'eng', zh: 'chi_sim', ja: 'jpn' }[uiLang()] || 'kor') ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <label class="chk"><input type="checkbox" id="sp" checked> 틀린 글자 바로잡기 (한국어 책 · Kiwi 언어 모형 · 처음 한 번 약 28MB 받음)</label>
       <label class="chk"><input type="checkbox" id="hq"> 더 꼼꼼히 읽기 (느리지만 작은 글씨에 좋음)</label>
+      ${aiReady() ? `<label class="chk"><input type="checkbox" id="ai" style="flex:none"> <span><b>AI로 한 번 더 바로잡기</b> <span class="nt">(${esc(PROVIDERS[loadAI().provider].name)})</span> — 쪽 사진을 AI가 직접 보고 오타를 고쳐요. 가장 정확하지만 쪽마다 AI 요금이 들어요(Gemini가 가장 저렴해요).</span></label>`
+        : `<p class="note">AI로 한 번 더 바로잡기: <a href="#set">설정</a>에서 Claude·ChatGPT·Gemini 키를 넣으면 쓸 수 있어요. 쪽 사진을 AI가 직접 보고 오타를 고쳐 가장 정확해요.</p>`}
     </details>
-    <div class="row" style="margin-top:14px"><button id="go" disabled>읽기 시작</button><span class="note">300쪽 책이면 컴퓨터에서 30분~1시간쯤 걸려요. 그동안 이 화면을 열어 두세요(다른 탭은 써도 돼요).</span></div>
+    <div class="row" style="margin-top:14px"><button id="go" disabled>읽기 시작</button><span class="note">300쪽 책이면 컴퓨터에서 40분~2시간쯤 걸려요. 그동안 이 화면을 열어 두세요(다른 탭은 써도 돼요).</span></div>
   </div>`;
   view.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => { if (confirm('읽던 내용을 지울까요?')) { await delRaw('imports/' + b.dataset.del); renderAdd(view, ctx); } }));
   const f = view.querySelector('#f'), go = view.querySelector('#go'), drop = view.querySelector('#drop');
@@ -53,7 +58,7 @@ export async function renderAdd(view, ctx) {
     if (cf) cover = await shrink(cf, 480);
     const [publisher, year] = view.querySelector('#p').value.split(/[,·]/).map((x) => x.trim());
     const job = { id, title: view.querySelector('#t').value.trim() || '제목 없는 책', author: view.querySelector('#a').value.trim(), publisher: publisher || '', year: year || '', cover,
-      lang: view.querySelector('#bl').value, spell: view.querySelector('#sp').checked && view.querySelector('#bl').value === 'kor', dpi: view.querySelector('#hq').checked ? 360 : 300, files: files.map((x) => x.name), total: 0, pages: [], at: new Date().toISOString() };
+      lang: view.querySelector('#bl').value, spell: view.querySelector('#sp').checked && view.querySelector('#bl').value === 'kor', dpi: view.querySelector('#hq').checked ? 500 : 400, ai: !!view.querySelector('#ai')?.checked, files: files.map((x) => x.name), total: 0, pages: [], at: new Date().toISOString() };
     // 원본 파일도 이 기기 안에 잠시 둔다(이어서 읽기용). 다 꽂으면 지운다
     const blobs = []; let total = 0;
     const O = await ocr();
@@ -86,9 +91,9 @@ export async function renderImport(view, ctx, id) {
 
 async function renderReading(view, ctx, job) {
   view.innerHTML = `<h1 class="nt">${esc(job.title)}</h1><p class="sub">글자를 읽고 있어요. 이 화면을 닫아도 읽은 쪽은 저장돼 있어서, 다시 열면 이어서 읽어요.</p>
-  <div class="cover"><div class="bar"><i id="pb" style="width:0"></i></div><p class="note" id="pn"></p><pre class="peek" id="peek"></pre>
+  <div class="cover"><div class="bar"><i id="pb" style="width:0"></i></div><p class="note" id="pn"></p><p class="note" id="ain">${job.ai ? 'AI로 한 번 더 바로잡는 중이에요.' : ''}</p><pre class="peek" id="peek"></pre>
   <div class="row"><button class="ghost" id="stop">잠시 멈추기</button></div></div>`;
-  const pb = view.querySelector('#pb'), pn = view.querySelector('#pn'), peek = view.querySelector('#peek');
+  const pb = view.querySelector('#pb'), pn = view.querySelector('#pn'), peek = view.querySelector('#peek'), aiNote = view.querySelector('#ain');
   if (running && running.id !== job.id) { pn.textContent = '다른 책을 읽고 있어요. 그 책이 끝난 뒤에 이어서 읽을게요.'; return; }
   const O = await ocr();
   const blobs = await getRaw('importfiles/' + job.id);
@@ -112,6 +117,26 @@ async function renderReading(view, ctx, job) {
   };
   let saving = Promise.resolve();
   const save = () => (saving = saving.then(() => putRaw('imports/' + job.id, job)));
+  // AI 정밀 교정: 받은 줄이 원래 줄과 충분히 닮았을 때만 쓴다(지어낸 글 막기)
+  const cfg = loadAI(); let aiOn = !!job.ai && aiReady(), aiFails = 0;
+  const proof = async (b64, lines) => {
+    if (!aiOn) return false;
+    try {
+      const src = lines.map((l) => l.text), got = await proofPage(cfg, b64, src, job.lang || 'kor');
+      const conf = (l) => (l.words?.length ? l.words.reduce((a, x) => a + x.conf, 0) / l.words.length : l.conf || 0);
+      got.forEach((t, i) => {
+        if (t === src[i]) return;
+        if (!t.trim()) { if (conf(lines[i]) < 50) lines[i].text = ''; return; }
+        const like = likeness(t, src[i]);
+        if (like >= 0.6 || (conf(lines[i]) < 60 && like >= 0.3)) lines[i].text = t;
+      });
+      aiFails = 0; return true;
+    } catch (e) {
+      console.warn('AI 교정', e); lastErr = String(e?.message || e);
+      if (++aiFails >= 3) { aiOn = false; aiNote.textContent = t('AI 바로잡기가 계속 실패해서 껐어요(글자 인식은 계속해요): {e}', { e: lastErr }); }
+      return false;
+    }
+  };
   async function lane(slot) {
     for (let i; !stop && (i = todo()) >= 0;) {
       const [fi, p] = map[i], b = blobs[fi];
@@ -119,10 +144,10 @@ async function renderReading(view, ctx, job) {
       try {
         if (b.type === 'pdf') {
           const doc = await getDoc(fi); const page = await doc.getPage(p);
-          pg = await O.textLayer(page) || await O.ocrPage(page, { dpi: job.dpi, slot, lang: job.lang || 'kor' });
+          pg = await O.textLayer(page) || await O.ocrPage(page, { dpi: job.dpi, slot, lang: job.lang || 'kor', proof });
           page.cleanup();
-        } else pg = await O.ocrImage(new Blob([b.data], { type: b.type }), { slot, lang: job.lang || 'kor' });
-        if (fixer && !pg.digital) pg.spell = O.spellLines(fixer, pg.lines);
+        } else pg = await O.ocrImage(new Blob([b.data], { type: b.type }), { slot, lang: job.lang || 'kor', proof });
+        if (fixer && !pg.digital && !pg.proofed) pg.spell = O.spellLines(fixer, pg.lines);
       } catch (e) {
         console.error(e); fails++;
         lastErr = String(e?.message || e);
@@ -188,6 +213,11 @@ async function finish(view, ctx, job, pages) {
   const extra = (ctx.settings().extraWords || '').split(/[\s,]+/).filter(Boolean);
   const rep = (job.lang || 'kor') !== 'kor' ? {} : buildFixes(chs.flatMap((c) => [...c.text, c.epigraph, c.title, c.subtitle]), extra);
   for (const c of chs) { c.text = c.text.map((t) => applyFixes(t, rep)); c.epigraph = applyFixes(c.epigraph, rep); c.title = applyFixes(c.title, rep); c.subtitle = applyFixes(c.subtitle, rep); }
+  // 성경 장절 바로잡기(한국어 책): 66권 1,189장의 절 수 표로 있을 수 있는 장절만 남긴다
+  if ((job.lang || 'kor') === 'kor') {
+    const freq = bookFreq(chs.flatMap((c) => [...c.text, c.epigraph || '']).join('\n'));
+    for (const c of chs) { c.text = c.text.map((t) => fixRefs(t, freq)); if (c.epigraph) c.epigraph = fixRefs(c.epigraph, freq); }
+  }
   const bid = job.id;
   const books = (await list('books')).map((d) => d.data);
   const colors = ['#8a7a5c', '#5c7a8a', '#7a5c8a', '#5c8a6a', '#8a5c5c', '#6a6a8a'];

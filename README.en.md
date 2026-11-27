@@ -11,6 +11,9 @@ A web app for reading books you own, chapter by chapter. Add a PDF of a book (sc
 - **Add a book**: join several PDFs (e.g. volume 1 and 2) or many photos into one book.
   - Text PDFs are read directly; scanned PDFs are read with OCR (tesseract.js).
   - Small numbers such as Bible references (`3:16`) and English words inside Korean text are re-read at a larger size.
+  - **Missed-line recovery**: lines that whole-page reading misses, such as gray subtitles and large titles, are re-read one line at a time with boosted contrast.
+  - **Bible reference correction** (Korean books): a table of verse counts for all 1,189 chapters of the 66 books keeps only references that can exist, using digit-confusion costs learned from a whole book (`롬 512` → `롬 5:12`).
+  - **Proofread once more with AI (optional)**: with your Claude, ChatGPT or Gemini key, the AI looks at each page image and fixes typos. Answers too different from the OCR line are rejected so nothing invented gets in. Each page costs AI fees.
   - Korean books: misread letters are corrected with the Kiwi Korean language model, following the method of [hwp2docx](https://github.com/kimppi-1/hwp2docx).
   - **Protecting key words** (Korean books): words such as 하나님 (God), 예수 (Jesus), 그리스도 (Christ), 성령 (Holy Spirit), 성경 (Bible), the 66 book names of the Bible and key theological terms are corrected when OCR gets them wrong. You can add your own words in Settings.
 - **Book languages**: Korean, English, Chinese (Simplified/Traditional) and Japanese.
@@ -26,7 +29,7 @@ A web app for reading books you own, chapter by chapter. Add a PDF of a book (sc
 ## Privacy and copyright
 
 - Book files, text, reading records and notes are stored **only in your browser (IndexedDB)**. Nothing is uploaded to this repository or to any server.
-- Only when you make questions with an AI API is that chapter's text sent to the AI company you chose.
+- Only when you make questions with an AI API is that chapter's text sent, and only when you turn on AI proofreading are page images sent, to the AI company you chose. Nothing else is sent.
 - This repository contains no books. Add **books you own, for your personal study**, and do not share the text you create.
 
 ## Installing
@@ -55,6 +58,7 @@ There is no build step: edit the HTML and JavaScript files and the changes appea
 | `src/ocr.mjs` | PDF text extraction, OCR, re-reading references and English, spelling correction |
 | `src/chapters.mjs` | Finding chapter titles, subtitles, Bible epigraphs and paragraphs from line size and position |
 | `src/glossary.mjs` | Protecting key words |
+| `src/refs.mjs`, `src/bible-meta.mjs` | Bible reference correction and the chapter/verse table |
 | `src/ai.mjs` | Choosing an AI and the prompts |
 | `src/i18n.mjs`, `src/i18n-dict.mjs` | Screen language and translation dictionary |
 | `src/store.mjs` | On-device storage (IndexedDB) |
